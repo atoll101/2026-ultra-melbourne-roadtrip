@@ -22,31 +22,36 @@ function parseMapsUrl(url: string): { lat: number; lng: number } | null {
   return null;
 }
 
-// Build route coordinates with confirmed stops inserted in geographic order
-function buildRouteWithStops(confirmedStops: PitStop[]): GeoJSON.Feature<GeoJSON.LineString> {
-  const baseCoords = ROUTE_GEOJSON.geometry.coordinates;
-  if (confirmedStops.length === 0) return ROUTE_GEOJSON;
-
-  // For each confirmed stop, find the best insertion point along the route
-  const allCoords = [...baseCoords];
-  for (const stop of confirmedStops) {
-    let bestIdx = 0;
-    let bestDist = Infinity;
-    for (let i = 0; i < allCoords.length - 1; i++) {
-      const d = distToSegment([stop.lng, stop.lat], allCoords[i], allCoords[i + 1]);
-      if (d < bestDist) { bestDist = d; bestIdx = i + 1; }
-    }
-    allCoords.splice(bestIdx, 0, [stop.lng, stop.lat]);
+// Fetch road-following route from Mapbox Directions API
+async function fetchDirectionsRoute(
+  waypoints: { lng: number; lat: number }[]
+): Promise<GeoJSON.Feature<GeoJSON.LineString> | null> {
+  if (waypoints.length < 2) return null;
+  const coords = waypoints.map((w) => `${w.lng},${w.lat}`).join(';');
+  const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coords}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.routes?.[0]?.geometry) return null;
+    return {
+      type: 'Feature',
+      properties: {},
+      geometry: data.routes[0].geometry,
+    };
+  } catch {
+    return null;
   }
-
-  return { ...ROUTE_GEOJSON, geometry: { ...ROUTE_GEOJSON.geometry, coordinates: allCoords } };
 }
 
-function distToSegment(p: number[], a: number[], b: number[]): number {
-  const dx = b[0] - a[0], dy = b[1] - a[1];
-  const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy)));
-  const px = a[0] + t * dx, py = a[1] + t * dy;
-  return Math.sqrt((p[0] - px) ** 2 + (p[1] - py) ** 2);
+// Sort confirmed stops geographically along the route (by distance from Sydney)
+function sortStopsAlongRoute(stops: PitStop[]): PitStop[] {
+  const start = COORDINATES.sydney;
+  return [...stops].sort((a, b) => {
+    const da = Math.sqrt((a.lng - start.lng) ** 2 + (a.lat - start.lat) ** 2);
+    const db = Math.sqrt((b.lng - start.lng) ** 2 + (b.lat - start.lat) ** 2);
+    return da - db;
+  });
 }
 
 export default function RouteMap({ userName }: { userName: string }) {
@@ -56,6 +61,7 @@ export default function RouteMap({ userName }: { userName: string }) {
   const [stops, setStops] = useState<PitStop[]>([]);
   const [inputText, setInputText] = useState('');
   const [extracting, setExtracting] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
 
   const fetchStops = useCallback(async () => {
     try {
@@ -83,6 +89,7 @@ export default function RouteMap({ userName }: { userName: string }) {
     });
     map.addControl(new mapboxgl.NavigationControl(), 'top-left');
     map.on('load', () => {
+      // Start with the static fallback route, will be replaced by directions
       map.addSource('route', { type: 'geojson', data: ROUTE_GEOJSON });
       map.addLayer({
         id: 'route-line', type: 'line', source: 'route',
@@ -92,12 +99,34 @@ export default function RouteMap({ userName }: { userName: string }) {
       addCityMarker(map, COORDINATES.sydney, 'Sydney');
       addCityMarker(map, COORDINATES.albury, 'Albury');
       addCityMarker(map, COORDINATES.melbourne, 'Melbourne');
+      setMapReady(true);
     });
     mapRef.current = map;
     return () => { map.remove(); mapRef.current = null; };
   }, []);
 
-  // Sync markers + route line with stops
+  // Fetch road-following directions & update route whenever confirmed stops change
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const confirmed = sortStopsAlongRoute(stops.filter((s) => s.confirmed));
+    const waypoints = [
+      COORDINATES.sydney,
+      ...confirmed.map((s) => ({ lng: s.lng, lat: s.lat })),
+      COORDINATES.albury,
+      COORDINATES.melbourne,
+    ];
+
+    fetchDirectionsRoute(waypoints).then((route) => {
+      const source = map.getSource('route') as mapboxgl.GeoJSONSource | undefined;
+      if (source && route) {
+        source.setData(route);
+      }
+    });
+  }, [stops, mapReady]);
+
+  // Sync stop markers
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -127,13 +156,6 @@ export default function RouteMap({ userName }: { userName: string }) {
         .addTo(map);
       stopMarkersRef.current.push(marker);
     });
-
-    // Update route line to include confirmed stops
-    const confirmed = stops.filter((s) => s.confirmed);
-    const source = map.getSource('route') as mapboxgl.GeoJSONSource | undefined;
-    if (source) {
-      source.setData(buildRouteWithStops(confirmed));
-    }
   }, [stops]);
 
   const addStop = async () => {
@@ -221,7 +243,7 @@ export default function RouteMap({ userName }: { userName: string }) {
   const suggestions = stops.filter((s) => !s.confirmed);
 
   return (
-    <section id="route" className="py-6 px-4 md:px-6 max-w-3xl mx-auto">
+    <section id="route" className="py-6 px-4 md:px-6 max-w-5xl mx-auto">
       <h2 className="font-display text-lg font-bold text-text-primary mb-1">Route</h2>
       <p className="text-text-muted text-sm mb-4">
         Paste a Google Maps link to suggest a pit stop. Confirm stops to add them to the route.
@@ -247,9 +269,45 @@ export default function RouteMap({ userName }: { userName: string }) {
         <p className="text-xs text-accent mb-3 -mt-2">Google Maps link detected — AI will extract place details</p>
       )}
 
-      {/* Map */}
-      <div className="rounded-xl overflow-hidden border border-border shadow-sm">
-        <div ref={mapContainerRef} className="w-full h-[300px] md:h-[400px]" />
+      {/* Map + departure info side-by-side on desktop */}
+      <div className="md:flex md:gap-4">
+        <div className="flex-1 rounded-xl overflow-hidden border border-border shadow-sm">
+          <div ref={mapContainerRef} className="w-full h-[300px] md:h-[450px]" />
+        </div>
+
+        {/* Departure info panel */}
+        <div className="md:w-56 mt-4 md:mt-0 space-y-3">
+          <div className="bg-white rounded-lg border border-border p-3 shadow-sm">
+            <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Departure</p>
+            <p className="text-2xl font-display font-bold text-accent">4:00 PM</p>
+            <p className="text-sm text-text-primary mt-1">Wed Apr 8</p>
+            <p className="text-xs text-text-muted mt-1">Departing Sydney</p>
+          </div>
+
+          <div className="bg-white rounded-lg border border-border p-3 shadow-sm">
+            <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Route</p>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
+                <span className="text-text-primary">Sydney</span>
+              </div>
+              {confirmed.map((stop) => (
+                <div key={stop.id} className="flex items-center gap-2 ml-1 border-l border-border pl-3">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent/60 flex-shrink-0" />
+                  <span className="text-text-primary text-xs truncate">{stop.name}</span>
+                </div>
+              ))}
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
+                <span className="text-text-primary">Albury</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
+                <span className="text-text-primary">Melbourne</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Confirmed stops */}

@@ -80,15 +80,6 @@ export default function Home() {
         )}
       </main>
 
-      <footer className="py-8 text-center text-text-muted text-xs border-t border-border-light">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="https://ultraaustralia.com/wp-content/uploads/2018/06/australia-logo.png"
-          alt="Ultra Australia"
-          className="h-5 mx-auto mb-2 opacity-20"
-        />
-        Road trip planner · Apr 2026
-      </footer>
     </>
   );
 }
