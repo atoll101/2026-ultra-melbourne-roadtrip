@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAutosave } from '@/hooks/useAutosave';
-import { POLL_INTERVAL, TRIP_DATES } from '@/lib/constants';
+import { POLL_INTERVAL, TRIP_DATES, ACCOMMODATION } from '@/lib/constants';
 import type { ItineraryData, DayPlan, MelbourneIdea } from '@/lib/types';
 
 const EMPTY_DAY: DayPlan = { notes: '', spots: [], lastEditedBy: '', lastEditedAt: '' };
@@ -169,6 +169,17 @@ export default function Itinerary({ userName }: { userName: string }) {
 
               {isExpanded && (
                 <div className="px-4 pb-4 space-y-3">
+                  {/* Accommodation */}
+                  {day.stay && ACCOMMODATION[day.stay] && (
+                    <div className="flex items-start gap-2 bg-accent-light/50 rounded-lg px-3 py-2 text-xs">
+                      <span className="text-accent mt-px">🏠</span>
+                      <div>
+                        <span className="font-medium text-text-primary">{ACCOMMODATION[day.stay].name}</span>
+                        <span className="text-text-muted block">{ACCOMMODATION[day.stay].address}</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Assigned spots */}
                   {assignedSpots.length > 0 && (
                     <div className="space-y-1">

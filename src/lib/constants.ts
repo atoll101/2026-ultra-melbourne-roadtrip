@@ -1,12 +1,23 @@
 export const TRIP_DATES = {
   departure: '2026-04-08T16:00:00+10:00', // 4pm AEST
   days: [
-    { id: 'day-1', date: '2026-04-08', label: 'Day 1 — Wed Apr 8 · Sydney → Albury' },
-    { id: 'day-2', date: '2026-04-09', label: 'Day 2 — Thu Apr 9 · Albury → Melbourne' },
-    { id: 'day-3', date: '2026-04-10', label: 'Day 3 — Fri Apr 10 · Melbourne' },
-    { id: 'day-4', date: '2026-04-11', label: 'Day 4 — Sat Apr 11 · Ultra' },
-    { id: 'day-5', date: '2026-04-12', label: 'Day 5 — Sun Apr 12 · Melbourne' },
+    { id: 'day-1', date: '2026-04-08', label: 'Day 1 — Wed Apr 8 · Sydney → Albury', stay: 'albury' as const },
+    { id: 'day-2', date: '2026-04-09', label: 'Day 2 — Thu Apr 9 · Albury → Melbourne', stay: 'melbourne' as const },
+    { id: 'day-3', date: '2026-04-10', label: 'Day 3 — Fri Apr 10 · Melbourne', stay: 'melbourne' as const },
+    { id: 'day-4', date: '2026-04-11', label: 'Day 4 — Sat Apr 11 · Ultra', stay: 'melbourne' as const },
+    { id: 'day-5', date: '2026-04-12', label: 'Day 5 — Sun Apr 12 · Melbourne', stay: 'melbourne' as const },
   ],
+} as const;
+
+export const ACCOMMODATION = {
+  albury: {
+    name: 'Night 1 — Albury',
+    address: '286 Downside Street, East Albury NSW 2640',
+  },
+  melbourne: {
+    name: 'Nights 2–4 — Melbourne',
+    address: '38 Rose Lane, Unit 1802, Melbourne VIC 3000',
+  },
 } as const;
 
 export const COORDINATES = {
