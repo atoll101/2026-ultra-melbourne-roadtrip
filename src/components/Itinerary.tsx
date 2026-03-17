@@ -8,7 +8,7 @@ import { POLL_INTERVAL, TRIP_DATES, ACCOMMODATION } from '@/lib/constants';
 const DayMap = dynamic(() => import('@/components/DayMap'), { ssr: false });
 import type { ItineraryData, DayPlan, MelbourneIdea } from '@/lib/types';
 
-const EMPTY_DAY: DayPlan = { notes: '', spots: [], lastEditedBy: '', lastEditedAt: '' };
+const EMPTY_DAY: DayPlan = { notes: '', spots: [], spotTimes: {}, lastEditedBy: '', lastEditedAt: '' };
 
 export default function Itinerary({ userName }: { userName: string }) {
   const [data, setData] = useState<ItineraryData>({});
@@ -51,7 +51,7 @@ export default function Itinerary({ userName }: { userName: string }) {
     try {
       await fetch('/api/itinerary', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dayId, notes: day.notes, spots: day.spots, lastEditedBy: userName }),
+        body: JSON.stringify({ dayId, notes: day.notes, spots: day.spots, spotTimes: day.spotTimes ?? {}, lastEditedBy: userName }),
       });
     } catch { /* ignore */ }
     setEditingDayId(null);
@@ -67,6 +67,24 @@ export default function Itinerary({ userName }: { userName: string }) {
       ...prev,
       [dayId]: { ...(prev[dayId] ?? EMPTY_DAY), notes, lastEditedBy: userName, lastEditedAt: new Date().toISOString() },
     }));
+    trigger();
+  };
+
+  const handleTimeChange = (dayId: string, spotId: string, time: string) => {
+    setEditingDayId(dayId);
+    setData((prev) => {
+      const day = prev[dayId] ?? EMPTY_DAY;
+      const spotTimes = { ...(day.spotTimes ?? {}) };
+      if (time) {
+        spotTimes[spotId] = time;
+      } else {
+        delete spotTimes[spotId];
+      }
+      return {
+        ...prev,
+        [dayId]: { ...day, spotTimes, lastEditedBy: userName, lastEditedAt: new Date().toISOString() },
+      };
+    });
     trigger();
   };
 
@@ -108,9 +126,11 @@ export default function Itinerary({ userName }: { userName: string }) {
     setIdeas((prev) => prev.map((i) => i.id === ideaId ? { ...i, assignedDay: undefined } : i));
     const day = data[dayId] ?? EMPTY_DAY;
     const spots = day.spots.filter((s) => s !== ideaId);
+    const spotTimes = { ...(day.spotTimes ?? {}) };
+    delete spotTimes[ideaId];
     setData((prev) => ({
       ...prev,
-      [dayId]: { ...day, spots, lastEditedBy: userName, lastEditedAt: new Date().toISOString() },
+      [dayId]: { ...day, spots, spotTimes, lastEditedBy: userName, lastEditedAt: new Date().toISOString() },
     }));
 
     try {
@@ -121,13 +141,28 @@ export default function Itinerary({ userName }: { userName: string }) {
         }),
         fetch('/api/itinerary', {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dayId, spots, lastEditedBy: userName }),
+          body: JSON.stringify({ dayId, spots, spotTimes, lastEditedBy: userName }),
         }),
       ]);
     } catch { fetchData(); }
   };
 
   const getIdea = (id: string) => ideas.find((i) => i.id === id);
+
+  // Sort spots by time (spots with times first, sorted chronologically, then unscheduled)
+  const getSortedSpots = (dayPlan: DayPlan) => {
+    const times = dayPlan.spotTimes ?? {};
+    const spotIds = [...dayPlan.spots];
+    spotIds.sort((a, b) => {
+      const ta = times[a];
+      const tb = times[b];
+      if (ta && tb) return ta.localeCompare(tb);
+      if (ta) return -1;
+      if (tb) return 1;
+      return 0;
+    });
+    return spotIds.map(getIdea).filter(Boolean) as MelbourneIdea[];
+  };
 
   return (
     <section id="itinerary">
@@ -140,7 +175,8 @@ export default function Itinerary({ userName }: { userName: string }) {
           const isExpanded = expandedDay === day.id;
           const isDragOver = dragOverDay === day.id;
           const time = dayPlan.lastEditedAt ? new Date(dayPlan.lastEditedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-          const assignedSpots = dayPlan.spots.map(getIdea).filter(Boolean) as MelbourneIdea[];
+          const assignedSpots = getSortedSpots(dayPlan);
+          const spotTimes = dayPlan.spotTimes ?? {};
 
           return (
             <div
@@ -183,23 +219,29 @@ export default function Itinerary({ userName }: { userName: string }) {
                     </div>
                   )}
 
-                  {/* Assigned spots */}
+                  {/* Assigned spots with times */}
                   {assignedSpots.length > 0 && (
                     <div className="space-y-1">
                       {assignedSpots.map((spot) => (
-                        <div key={spot.id} className="flex items-center justify-between gap-2 bg-surface-alt rounded-lg px-3 py-2 group">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
-                            <span className="text-sm text-text-primary truncate">{spot.text}</span>
-                            {spot.mapsUrl && (
-                              <a href={spot.mapsUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:opacity-70 flex-shrink-0">
-                                <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.22 14.78a.75.75 0 001.06 0l7.22-7.22v5.69a.75.75 0 001.5 0v-7.5a.75.75 0 00-.75-.75h-7.5a.75.75 0 000 1.5h5.69l-7.22 7.22a.75.75 0 000 1.06z" clipRule="evenodd" /></svg>
-                              </a>
-                            )}
-                          </div>
+                        <div key={spot.id} className="flex items-center gap-2 bg-surface-alt rounded-lg px-3 py-2 group">
+                          {/* Time input */}
+                          <input
+                            type="time"
+                            value={spotTimes[spot.id] ?? ''}
+                            onChange={(e) => handleTimeChange(day.id, spot.id, e.target.value)}
+                            className="w-[5.5rem] text-xs font-medium text-accent bg-transparent border border-border rounded px-1.5 py-1 focus:outline-none focus:border-accent/50 [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
+                            title="Set time"
+                          />
+                          <span className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
+                          <span className="text-sm text-text-primary truncate flex-1 min-w-0">{spot.text}</span>
+                          {spot.mapsUrl && (
+                            <a href={spot.mapsUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:opacity-70 flex-shrink-0">
+                              <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.22 14.78a.75.75 0 001.06 0l7.22-7.22v5.69a.75.75 0 001.5 0v-7.5a.75.75 0 00-.75-.75h-7.5a.75.75 0 000 1.5h5.69l-7.22 7.22a.75.75 0 000 1.06z" clipRule="evenodd" /></svg>
+                            </a>
+                          )}
                           <button
                             onClick={() => removeSpotFromDay(spot.id, day.id)}
-                            className="text-text-muted hover:text-red-500 text-sm p-1"
+                            className="text-text-muted hover:text-red-500 text-sm p-1 flex-shrink-0"
                             title="Remove from this day"
                           >
                             &times;

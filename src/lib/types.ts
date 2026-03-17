@@ -6,6 +6,9 @@ export interface PitStop {
   lat: number;
   addedBy: string;
   addedAt: string;
+  mapsUrl?: string;
+  confirmed: boolean;
+  upvotedBy?: string[];
 }
 
 export interface DayNote {
@@ -17,6 +20,7 @@ export interface DayNote {
 export interface DayPlan {
   notes: string;
   spots: string[]; // idea IDs assigned to this day
+  spotTimes?: Record<string, string>; // spot ID → "HH:MM" time
   lastEditedBy: string;
   lastEditedAt: string;
 }

@@ -26,8 +26,8 @@
   --color-accent-lime: var(--accent-lime);
   --color-border: var(--border);
   --color-border-light: var(--border-light);
-  --font-display: var(--font-syne);
-  --font-body: var(--font-instrument-sans);
+  --font-display: var(--font-space-grotesk);
+  --font-body: var(--font-inter);
 }
 
 body {

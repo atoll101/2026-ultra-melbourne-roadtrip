@@ -19,16 +19,19 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const kv = getKV();
-    const { name, description, lng, lat, addedBy } = await req.json();
+    const { name, description, lng, lat, addedBy, mapsUrl } = await req.json();
 
     const newStop: PitStop = {
       id: crypto.randomUUID(),
       name,
-      description,
+      description: description || '',
       lng,
       lat,
       addedBy,
       addedAt: new Date().toISOString(),
+      confirmed: false,
+      upvotedBy: [],
+      ...(mapsUrl && { mapsUrl }),
     };
 
     const stops = await kv.get<PitStop[]>(KV_KEYS.stops) ?? [];
@@ -39,6 +42,33 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('POST /api/stops error:', error);
     return NextResponse.json({ error: 'Failed to add stop' }, { status: 500 });
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const kv = getKV();
+    const { id, userName, confirmed } = await req.json();
+
+    const stops = await kv.get<PitStop[]>(KV_KEYS.stops) ?? [];
+    const stop = stops.find((s) => s.id === id);
+    if (!stop) return NextResponse.json({ error: 'Stop not found' }, { status: 404 });
+
+    if (confirmed !== undefined) {
+      stop.confirmed = confirmed;
+    } else if (userName) {
+      // Toggle upvote
+      if (!stop.upvotedBy) stop.upvotedBy = [];
+      const idx = stop.upvotedBy.indexOf(userName);
+      if (idx >= 0) stop.upvotedBy.splice(idx, 1);
+      else stop.upvotedBy.push(userName);
+    }
+
+    await kv.set(KV_KEYS.stops, stops);
+    return NextResponse.json(stop);
+  } catch (error) {
+    console.error('PUT /api/stops error:', error);
+    return NextResponse.json({ error: 'Failed to update stop' }, { status: 500 });
   }
 }
 

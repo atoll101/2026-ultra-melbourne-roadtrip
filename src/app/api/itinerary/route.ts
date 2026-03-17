@@ -23,11 +23,12 @@ export async function PUT(req: NextRequest) {
     const { dayId, lastEditedBy } = body;
 
     const data = await kv.get<ItineraryData>(KV_KEYS.itinerary) ?? {};
-    const existing = data[dayId] ?? { notes: '', spots: [], lastEditedBy: '', lastEditedAt: '' };
+    const existing = data[dayId] ?? { notes: '', spots: [], spotTimes: {}, lastEditedBy: '', lastEditedAt: '' };
 
-    // Support updating notes, spots, or both
+    // Support updating notes, spots, spotTimes, or any combination
     if ('notes' in body) existing.notes = body.notes;
     if ('spots' in body) existing.spots = body.spots;
+    if ('spotTimes' in body) existing.spotTimes = body.spotTimes;
     existing.lastEditedBy = lastEditedBy;
     existing.lastEditedAt = new Date().toISOString();
 
