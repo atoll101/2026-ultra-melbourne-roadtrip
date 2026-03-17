@@ -1,26 +1,82 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0A0A0F;
+  --surface: #14141F;
+  --surface-alt: #1E1E2E;
+  --text-primary: #F0EDE6;
+  --text-muted: #8A8690;
+  --accent-violet: #A855F7;
+  --accent-pink: #EC4899;
+  --accent-lime: #BFFF00;
+  --border: #2A2A3A;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-text-primary: var(--text-primary);
+  --color-text-muted: var(--text-muted);
+  --color-accent-violet: var(--accent-violet);
+  --color-accent-pink: var(--accent-pink);
+  --color-accent-lime: var(--accent-lime);
+  --color-border: var(--border);
+  --font-display: var(--font-syne);
+  --font-body: var(--font-instrument-sans);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+/* Hero gradient animation */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.hero-gradient {
+  background: linear-gradient(135deg, #0A0A0F 0%, #1a0a2e 25%, #0A0A0F 50%, #0a1a2e 75%, #0A0A0F 100%);
+  background-size: 400% 400%;
+  animation: gradient-shift 15s ease infinite;
+}
+
+/* Mapbox overrides */
+.mapboxgl-popup-content {
+  background: var(--surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  padding: 16px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+.mapboxgl-popup-tip {
+  border-top-color: var(--surface) !important;
+}
+
+.mapboxgl-popup-close-button {
+  color: var(--text-muted) !important;
+  font-size: 18px !important;
+  padding: 4px 8px !important;
+}
+
+/* Section scroll margin for nav */
+section[id] {
+  scroll-margin-top: 72px;
 }
