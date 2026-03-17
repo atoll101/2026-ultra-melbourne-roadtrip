@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
 import { POLL_INTERVAL, MELBOURNE_CATEGORIES, TRIP_DATES } from '@/lib/constants';
 import type { MelbourneIdea, ExtractedPlace } from '@/lib/types';
 
@@ -33,8 +34,9 @@ export default function MelbourneBoard({ userName }: { userName: string }) {
   const [extracting, setExtracting] = useState(false);
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
 
   const fetchIdeas = useCallback(async () => {
     try {
@@ -53,44 +55,66 @@ export default function MelbourneBoard({ userName }: { userName: string }) {
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', vis); };
   }, [fetchIdeas]);
 
-  // Mini map
+  // Google Maps mini map
   useEffect(() => {
     if (!mapContainerRef.current || typeof window === 'undefined') return;
     const withCoords = ideas.filter((i) => i.lng != null && i.lat != null);
-    if (withCoords.length === 0) {
-      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
-      return;
-    }
+    if (withCoords.length === 0) return;
+
     const init = async () => {
-      const mapboxgl = (await import('mapbox-gl')).default;
-      mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? '';
+      if (!apiKey) return;
+      setOptions({ key: apiKey, v: 'weekly' });
+      const { Map, InfoWindow } = await importLibrary('maps') as google.maps.MapsLibrary;
+      const { AdvancedMarkerElement } = await importLibrary('marker') as google.maps.MarkerLibrary;
+
       if (!mapRef.current && mapContainerRef.current) {
-        mapRef.current = new mapboxgl.Map({ container: mapContainerRef.current, style: 'mapbox://styles/mapbox/light-v11', center: [144.9631, -37.8136], zoom: 12 });
+        mapRef.current = new Map(mapContainerRef.current, {
+          center: { lat: -37.81, lng: 144.97 },
+          zoom: 12,
+          mapId: 'melbourne-spots',
+          disableDefaultUI: true,
+          zoomControl: true,
+          gestureHandling: 'cooperative',
+        });
+        infoWindowRef.current = new InfoWindow();
       }
-      const map = mapRef.current;
-      if (!map) return;
-      markersRef.current.forEach((m) => m.remove());
+      const map = mapRef.current!;
+      const infoWindow = infoWindowRef.current!;
+
+      // Clear old markers
+      markersRef.current.forEach((m) => (m.map = null));
       markersRef.current = [];
-      const bounds = new mapboxgl.LngLatBounds();
+
+      const bounds = new google.maps.LatLngBounds();
       withCoords.forEach((idea) => {
-        const el = document.createElement('div');
-        const label = document.createElement('span');
-        label.textContent = idea.text;
-        Object.assign(label.style, { position: 'absolute', left: '100%', marginLeft: '6px', whiteSpace: 'nowrap', fontSize: '11px', fontWeight: '600', fontFamily: 'system-ui', color: '#4C1D95', pointerEvents: 'none', textShadow: '0 0 3px white, 0 0 3px white, 0 0 3px white' });
-        Object.assign(el.style, { width: '16px', height: '16px', borderRadius: '50%', background: '#7C3AED', border: '2.5px solid white', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', position: 'relative' });
-        el.appendChild(label);
-        const popup = new mapboxgl.Popup({ offset: 10, maxWidth: '200px' }).setHTML(`
-          <div style="font-size:12px;font-family:system-ui;"><div style="font-weight:600;">${esc(idea.text)}</div>
-          ${idea.description ? `<div style="color:#888;font-size:11px;margin-top:2px;">${esc(idea.description)}</div>` : ''}
-          <div style="color:#888;font-size:11px;margin-top:2px;">${CATEGORY_EMOJI[idea.category] ?? ''} ${esc(idea.category)}</div>
-          ${idea.mapsUrl ? `<a href="${esc(idea.mapsUrl)}" target="_blank" rel="noopener" style="color:#7C3AED;font-size:11px;">Open in Maps</a>` : ''}</div>`);
-        const marker = new mapboxgl.Marker({ element: el }).setLngLat([idea.lng!, idea.lat!]).setPopup(popup).addTo(map);
+        const pin = document.createElement('div');
+        Object.assign(pin.style, { width: '14px', height: '14px', borderRadius: '50%', background: '#7C3AED', border: '2.5px solid white', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', cursor: 'pointer' });
+        const marker = new AdvancedMarkerElement({
+          map,
+          position: { lat: idea.lat!, lng: idea.lng! },
+          content: pin,
+          title: idea.text,
+        });
+        marker.addListener('click', () => {
+          infoWindow.setContent(`
+            <div style="font-size:12px;font-family:system-ui;max-width:200px;">
+              <div style="font-weight:600;">${esc(idea.text)}</div>
+              ${idea.description ? `<div style="color:#666;font-size:11px;margin-top:2px;">${esc(idea.description)}</div>` : ''}
+              <div style="color:#888;font-size:11px;margin-top:4px;">${CATEGORY_EMOJI[idea.category] ?? ''} ${esc(idea.category)}</div>
+              ${idea.mapsUrl ? `<a href="${esc(idea.mapsUrl)}" target="_blank" rel="noopener" style="color:#7C3AED;font-size:11px;margin-top:4px;display:inline-block;">Open in Google Maps &rarr;</a>` : ''}
+            </div>`);
+          infoWindow.open({ anchor: marker, map });
+        });
         markersRef.current.push(marker);
-        bounds.extend([idea.lng!, idea.lat!]);
+        bounds.extend({ lat: idea.lat!, lng: idea.lng! });
       });
-      // Center on inner Melbourne; don't let outlier geocodes zoom out too far
-      map.setCenter([144.97, -37.8]);
-      map.setZoom(12);
+      if (withCoords.length > 1) {
+        map.fitBounds(bounds, { top: 40, bottom: 40, left: 40, right: 40 });
+      } else {
+        map.setCenter({ lat: withCoords[0].lat!, lng: withCoords[0].lng! });
+        map.setZoom(15);
+      }
     };
     init();
   }, [ideas]);
@@ -202,9 +226,9 @@ export default function MelbourneBoard({ userName }: { userName: string }) {
         Paste a Google Maps link and AI will extract the details. Vote on spots, then drag them into the itinerary.
       </p>
 
-      {/* Mini map */}
+      {/* Google Maps mini map */}
       {withCoords.length > 0 && (
-        <div ref={mapContainerRef} className="w-full h-[200px] md:h-[240px] rounded-xl overflow-hidden border border-border shadow-sm mb-6" />
+        <div ref={mapContainerRef} className="w-full h-[240px] md:h-[300px] rounded-xl overflow-hidden border border-border shadow-sm mb-6" />
       )}
       {withCoords.length === 0 && <div ref={mapContainerRef} className="hidden" />}
 

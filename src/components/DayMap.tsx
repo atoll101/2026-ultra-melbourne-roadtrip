@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
 import type { MelbourneIdea } from '@/lib/types';
 
 interface DayMapProps {
@@ -9,8 +10,9 @@ interface DayMapProps {
 
 export default function DayMap({ spots }: DayMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
 
   const spotsWithCoords = spots.filter((s) => s.lng != null && s.lat != null);
 
@@ -18,58 +20,59 @@ export default function DayMap({ spots }: DayMapProps) {
     if (!containerRef.current || spotsWithCoords.length === 0) return;
 
     const init = async () => {
-      const mapboxgl = (await import('mapbox-gl')).default;
-      mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? '';
+      if (!apiKey) return;
+      setOptions({ key: apiKey, v: 'weekly' });
+      const { Map, InfoWindow } = await importLibrary('maps') as google.maps.MapsLibrary;
+      const { AdvancedMarkerElement } = await importLibrary('marker') as google.maps.MarkerLibrary;
 
       if (!mapRef.current && containerRef.current) {
-        mapRef.current = new mapboxgl.Map({
-          container: containerRef.current,
-          style: 'mapbox://styles/mapbox/light-v11',
-          center: [spotsWithCoords[0].lng!, spotsWithCoords[0].lat!],
+        mapRef.current = new Map(containerRef.current, {
+          center: { lat: spotsWithCoords[0].lat!, lng: spotsWithCoords[0].lng! },
           zoom: 13,
-          interactive: true,
+          mapId: 'day-spots',
+          disableDefaultUI: true,
+          zoomControl: true,
+          gestureHandling: 'cooperative',
         });
+        infoWindowRef.current = new InfoWindow();
       }
 
-      const map = mapRef.current;
-      if (!map) return;
-
-      // Wait for map to be ready
-      if (!map.isStyleLoaded()) {
-        await new Promise<void>((resolve) => map.on('load', () => resolve()));
-      }
+      const map = mapRef.current!;
+      const infoWindow = infoWindowRef.current!;
 
       // Clear old markers
-      markersRef.current.forEach((m) => m.remove());
+      markersRef.current.forEach((m) => (m.map = null));
       markersRef.current = [];
 
-      const bounds = new mapboxgl.LngLatBounds();
+      const bounds = new google.maps.LatLngBounds();
 
       spotsWithCoords.forEach((spot) => {
-        const el = document.createElement('div');
-        Object.assign(el.style, {
-          width: '10px', height: '10px', borderRadius: '50%',
-          background: '#7C3AED', border: '2px solid white',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.2)', cursor: 'pointer',
+        const pin = document.createElement('div');
+        Object.assign(pin.style, { width: '12px', height: '12px', borderRadius: '50%', background: '#7C3AED', border: '2px solid white', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', cursor: 'pointer' });
+
+        const marker = new AdvancedMarkerElement({
+          map,
+          position: { lat: spot.lat!, lng: spot.lng! },
+          content: pin,
+          title: spot.text,
         });
 
-        const popup = new mapboxgl.Popup({ offset: 8, maxWidth: '180px' }).setHTML(
-          `<div style="font-size:12px;font-family:system-ui;"><strong>${esc(spot.text)}</strong>${spot.description ? `<br><span style="color:#888">${esc(spot.description)}</span>` : ''}</div>`
-        );
-
-        const marker = new mapboxgl.Marker({ element: el })
-          .setLngLat([spot.lng!, spot.lat!])
-          .setPopup(popup)
-          .addTo(map);
+        marker.addListener('click', () => {
+          infoWindow.setContent(
+            `<div style="font-size:12px;font-family:system-ui;max-width:180px;"><strong>${esc(spot.text)}</strong>${spot.description ? `<br><span style="color:#888">${esc(spot.description)}</span>` : ''}</div>`
+          );
+          infoWindow.open({ anchor: marker, map });
+        });
 
         markersRef.current.push(marker);
-        bounds.extend([spot.lng!, spot.lat!]);
+        bounds.extend({ lat: spot.lat!, lng: spot.lng! });
       });
 
       if (spotsWithCoords.length > 1) {
-        map.fitBounds(bounds, { padding: 40, maxZoom: 15 });
+        map.fitBounds(bounds, { top: 40, bottom: 40, left: 40, right: 40 });
       } else {
-        map.setCenter([spotsWithCoords[0].lng!, spotsWithCoords[0].lat!]);
+        map.setCenter({ lat: spotsWithCoords[0].lat!, lng: spotsWithCoords[0].lng! });
         map.setZoom(14);
       }
     };
@@ -77,14 +80,12 @@ export default function DayMap({ spots }: DayMapProps) {
     init();
 
     return () => {
-      markersRef.current.forEach((m) => m.remove());
+      markersRef.current.forEach((m) => (m.map = null));
       markersRef.current = [];
       if (mapRef.current) {
-        mapRef.current.remove();
         mapRef.current = null;
       }
     };
-    // Re-run when spots change
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spotsWithCoords.map((s) => s.id).join(',')]);
 
