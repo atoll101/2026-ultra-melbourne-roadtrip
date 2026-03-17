@@ -16,6 +16,36 @@ async function resolveUrl(url: string): Promise<string> {
   }
 }
 
+// Extract lat/lng from a Google Maps URL using regex patterns
+function parseCoordsFromUrl(url: string): { lat: number; lng: number } | null {
+  const at = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (at) return { lat: parseFloat(at[1]), lng: parseFloat(at[2]) };
+  const q = url.match(/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (q) return { lat: parseFloat(q[1]), lng: parseFloat(q[2]) };
+  const p = url.match(/!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/);
+  if (p) return { lat: parseFloat(p[1]), lng: parseFloat(p[2]) };
+  return null;
+}
+
+// Geocode a place name using Mapbox to get coordinates
+async function geocodePlace(name: string): Promise<{ lat: number; lng: number } | null> {
+  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  if (!token) return null;
+  try {
+    const query = encodeURIComponent(`${name}, Melbourne, Australia`);
+    const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&limit=1&bbox=144.5,-38.1,145.5,-37.5`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.features?.length > 0) {
+      const [lng, lat] = data.features[0].center;
+      return { lat, lng };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -64,6 +94,24 @@ Rules:
     // Validate category
     if (!CATEGORIES.includes(parsed.category)) {
       parsed.category = 'Sights';
+    }
+
+    // Fallback: if Gemini didn't return coords, try parsing from the resolved URL
+    if (parsed.lat == null || parsed.lng == null) {
+      const urlCoords = parseCoordsFromUrl(url);
+      if (urlCoords) {
+        parsed.lat = urlCoords.lat;
+        parsed.lng = urlCoords.lng;
+      }
+    }
+
+    // Final fallback: geocode by place name using Mapbox
+    if (parsed.lat == null || parsed.lng == null) {
+      const geoCoords = await geocodePlace(parsed.name || '');
+      if (geoCoords) {
+        parsed.lat = geoCoords.lat;
+        parsed.lng = geoCoords.lng;
+      }
     }
 
     return NextResponse.json(parsed);
