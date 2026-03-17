@@ -209,7 +209,7 @@ export default function MelbourneBoard({ userName }: { userName: string }) {
           const count = ideas.filter((i) => i.category === cat && !i.assignedDay).length;
           return (
             <button key={cat} onClick={() => setActiveCategory(cat)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${activeCategory === cat ? 'bg-accent-light text-accent' : 'text-text-muted hover:text-text-primary hover:bg-surface-alt'}`}>
+              className={`flex items-center gap-1.5 px-3 py-2.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${activeCategory === cat ? 'bg-accent-light text-accent' : 'text-text-muted hover:text-text-primary active:text-text-primary hover:bg-surface-alt'}`}>
               <span>{CATEGORY_EMOJI[cat]}</span><span>{cat}</span>
               {count > 0 && <span className="opacity-50">({count})</span>}
             </button>
@@ -227,10 +227,10 @@ export default function MelbourneBoard({ userName }: { userName: string }) {
             onKeyDown={(e) => e.key === 'Enter' && addIdea()}
             placeholder={extracting ? 'Extracting place info...' : 'Place name or paste Google Maps link...'}
             disabled={extracting}
-            className="flex-1 bg-white border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 shadow-sm disabled:opacity-50"
+            className="flex-1 bg-white border border-border rounded-lg px-3 py-2.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 shadow-sm disabled:opacity-50"
           />
           <button onClick={addIdea} disabled={!inputText.trim() || extracting}
-            className="px-3 py-2 bg-accent text-white rounded-lg text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-30">
+            className="px-4 py-2.5 bg-accent text-white rounded-lg text-sm font-medium hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-30">
             {extracting ? '...' : 'Add'}
           </button>
         </div>
@@ -269,23 +269,23 @@ export default function MelbourneBoard({ userName }: { userName: string }) {
                   {idea.description && <p className="text-xs text-text-muted mt-0.5 md:ml-5">{idea.description}</p>}
                   <span className="text-xs text-text-muted md:ml-5">{idea.author}</span>
                 </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex items-center gap-1 flex-shrink-0">
                   {/* Assign to day — mobile tap alternative to drag */}
                   <button onClick={() => setAssigningId(isAssigning ? null : idea.id)}
-                    className="text-accent hover:opacity-70 p-1" title="Add to day">
-                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    className="text-accent hover:opacity-70 active:opacity-70 min-h-10 min-w-10 flex items-center justify-center" title="Add to day">
+                    <svg className="w-5 h-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
                   </button>
                   <button onClick={() => toggleUpvote(idea.id)}
-                    className={`flex items-center gap-1 text-xs p-1 transition-colors ${has ? 'text-accent-pink' : 'text-text-muted hover:text-accent-pink'}`}>
-                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill={has ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5">
+                    className={`flex items-center gap-1 text-xs min-h-10 min-w-10 justify-center transition-colors ${has ? 'text-accent-pink' : 'text-text-muted hover:text-accent-pink active:text-accent-pink'}`}>
+                    <svg className="w-5 h-5" viewBox="0 0 20 20" fill={has ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
                     </svg>
                     {idea.upvotedBy.length > 0 && <span>{idea.upvotedBy.length}</span>}
                   </button>
                   <button onClick={() => deleteIdea(idea.id)}
-                    className="text-text-muted hover:text-red-500 text-sm p-1" title="Delete">
+                    className="text-text-muted hover:text-red-500 active:text-red-500 text-lg min-h-10 min-w-10 flex items-center justify-center" title="Delete">
                     &times;
                   </button>
                 </div>

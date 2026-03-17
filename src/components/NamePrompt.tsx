@@ -46,7 +46,7 @@ export default function NamePrompt({ onSubmit }: NamePromptProps) {
           onChange={(e) => setValue(e.target.value)}
           placeholder="Your name"
           autoFocus
-          className="w-full rounded-lg bg-surface-alt border border-border px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
+          className="w-full rounded-lg bg-surface-alt border border-border px-4 py-2.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
         />
 
         <button

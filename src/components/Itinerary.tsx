@@ -223,25 +223,25 @@ export default function Itinerary({ userName }: { userName: string }) {
                   {assignedSpots.length > 0 && (
                     <div className="space-y-1">
                       {assignedSpots.map((spot) => (
-                        <div key={spot.id} className="flex items-center gap-2 bg-surface-alt rounded-lg px-3 py-2 group">
+                        <div key={spot.id} className="flex items-center gap-2 bg-surface-alt rounded-lg px-3 py-1.5 group">
                           {/* Time input */}
                           <input
                             type="time"
                             value={spotTimes[spot.id] ?? ''}
                             onChange={(e) => handleTimeChange(day.id, spot.id, e.target.value)}
-                            className="w-[5.5rem] text-xs font-medium text-accent bg-transparent border border-border rounded px-1.5 py-1 focus:outline-none focus:border-accent/50 [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
+                            className="w-24 text-sm font-medium text-accent bg-transparent border border-border rounded-md px-2 py-1.5 focus:outline-none focus:border-accent/50 [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
                             title="Set time"
                           />
                           <span className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
                           <span className="text-sm text-text-primary truncate flex-1 min-w-0">{spot.text}</span>
                           {spot.mapsUrl && (
-                            <a href={spot.mapsUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:opacity-70 flex-shrink-0">
-                              <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.22 14.78a.75.75 0 001.06 0l7.22-7.22v5.69a.75.75 0 001.5 0v-7.5a.75.75 0 00-.75-.75h-7.5a.75.75 0 000 1.5h5.69l-7.22 7.22a.75.75 0 000 1.06z" clipRule="evenodd" /></svg>
+                            <a href={spot.mapsUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:opacity-70 active:opacity-70 min-h-10 min-w-10 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.22 14.78a.75.75 0 001.06 0l7.22-7.22v5.69a.75.75 0 001.5 0v-7.5a.75.75 0 00-.75-.75h-7.5a.75.75 0 000 1.5h5.69l-7.22 7.22a.75.75 0 000 1.06z" clipRule="evenodd" /></svg>
                             </a>
                           )}
                           <button
                             onClick={() => removeSpotFromDay(spot.id, day.id)}
-                            className="text-text-muted hover:text-red-500 text-sm p-1 flex-shrink-0"
+                            className="text-text-muted hover:text-red-500 active:text-red-500 text-lg min-h-10 min-w-10 flex items-center justify-center flex-shrink-0"
                             title="Remove from this day"
                           >
                             &times;
@@ -268,7 +268,7 @@ export default function Itinerary({ userName }: { userName: string }) {
                     value={dayPlan.notes}
                     onChange={(e) => handleNotesChange(day.id, e.target.value)}
                     placeholder="Additional notes..."
-                    className="w-full bg-surface-alt border border-border rounded-lg p-3 min-h-[80px] text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/30 resize-y"
+                    className="w-full bg-surface-alt border border-border rounded-lg p-3 min-h-[80px] text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/30 resize-y"
                   />
                   {dayPlan.lastEditedBy && (
                     <p className="text-xs text-text-muted">

@@ -66,7 +66,7 @@ export default function SharedNotepad({ userName }: { userName: string }) {
         value={content}
         onChange={handleChange}
         placeholder="Jot down anything — ideas, links, reminders..."
-        className="w-full bg-white border border-border rounded-lg p-4 min-h-[180px] text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/30 resize-y shadow-sm"
+        className="w-full bg-white border border-border rounded-lg p-4 min-h-[180px] text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/30 resize-y shadow-sm"
       />
       {lastEditedBy && (
         <p className="text-xs text-text-muted mt-2">

@@ -261,10 +261,10 @@ export default function RouteMap({ userName }: { userName: string }) {
           onKeyDown={(e) => e.key === 'Enter' && addStop()}
           placeholder={extracting ? 'Extracting place info...' : 'Paste Google Maps link for a pit stop...'}
           disabled={extracting}
-          className="flex-1 bg-white border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 shadow-sm disabled:opacity-50"
+          className="flex-1 bg-white border border-border rounded-lg px-3 py-2.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/40 shadow-sm disabled:opacity-50"
         />
         <button onClick={addStop} disabled={!inputText.trim() || extracting}
-          className="px-3 py-2 bg-accent text-white rounded-lg text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-30">
+          className="px-4 py-2.5 bg-accent text-white rounded-lg text-sm font-medium hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-30">
           {extracting ? '...' : 'Add'}
         </button>
       </div>
@@ -328,11 +328,11 @@ export default function RouteMap({ userName }: { userName: string }) {
                     </a>
                   )}
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button onClick={() => toggleConfirm(stop.id, false)} className="text-xs text-text-muted hover:text-accent-pink p-1" title="Remove from route">
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button onClick={() => toggleConfirm(stop.id, false)} className="text-xs text-text-muted hover:text-accent-pink active:text-accent-pink min-h-10 min-w-10 flex items-center justify-center" title="Remove from route">
                     Remove
                   </button>
-                  <button onClick={() => handleDelete(stop.id)} className="text-text-muted hover:text-red-500 text-sm p-1">&times;</button>
+                  <button onClick={() => handleDelete(stop.id)} className="text-text-muted hover:text-red-500 active:text-red-500 text-lg min-h-10 min-w-10 flex items-center justify-center">&times;</button>
                 </div>
               </div>
             ))}
@@ -363,19 +363,19 @@ export default function RouteMap({ userName }: { userName: string }) {
                     {stop.description && <p className="text-xs text-text-muted mt-0.5 ml-4">{stop.description}</p>}
                     <span className="text-xs text-text-muted ml-4">{stop.addedBy}</span>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     <button onClick={() => toggleUpvote(stop.id)}
-                      className={`flex items-center gap-1 text-xs p-1 transition-colors ${hasVoted ? 'text-accent-pink' : 'text-text-muted hover:text-accent-pink'}`}>
-                      <svg className="w-4 h-4" viewBox="0 0 20 20" fill={hasVoted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5">
+                      className={`flex items-center gap-1 text-xs min-h-10 min-w-10 justify-center transition-colors ${hasVoted ? 'text-accent-pink' : 'text-text-muted hover:text-accent-pink active:text-accent-pink'}`}>
+                      <svg className="w-5 h-5" viewBox="0 0 20 20" fill={hasVoted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
                       </svg>
                       {votes.length > 0 && <span>{votes.length}</span>}
                     </button>
                     <button onClick={() => toggleConfirm(stop.id, true)}
-                      className="text-xs text-accent hover:opacity-70 p-1 font-medium" title="Add to route">
+                      className="text-xs text-accent hover:opacity-70 active:opacity-70 min-h-10 px-2 font-medium" title="Add to route">
                       Add to route
                     </button>
-                    <button onClick={() => handleDelete(stop.id)} className="text-text-muted hover:text-red-500 text-sm p-1">&times;</button>
+                    <button onClick={() => handleDelete(stop.id)} className="text-text-muted hover:text-red-500 active:text-red-500 text-lg min-h-10 min-w-10 flex items-center justify-center">&times;</button>
                   </div>
                 </div>
               );
