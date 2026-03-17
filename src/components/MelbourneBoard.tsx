@@ -127,7 +127,7 @@ export default function MelbourneBoard({ userName }: { userName: string }) {
           name = place.name || text;
           description = place.description || '';
           category = MELBOURNE_CATEGORIES.includes(place.category as typeof MELBOURNE_CATEGORIES[number]) ? place.category : activeCategory;
-          if (place.lat && place.lng) { lat = place.lng; lng = place.lng; lat = place.lat; }
+          if (place.lat && place.lng) { lat = place.lat; lng = place.lng; }
         }
 
         // Fallback: extract coords from URL directly
