@@ -1,35 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getKV } from '@/lib/kv';
 import { KV_KEYS } from '@/lib/constants';
-import type { ItineraryNotes } from '@/lib/types';
+import type { ItineraryData } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
     const kv = getKV();
-    const notes = await kv.get<ItineraryNotes>(KV_KEYS.itinerary) ?? {};
-    return NextResponse.json(notes);
+    const data = await kv.get<ItineraryData>(KV_KEYS.itinerary) ?? {};
+    return NextResponse.json(data);
   } catch (error) {
     console.error('GET /api/itinerary error:', error);
-    return NextResponse.json({ error: 'Failed to fetch itinerary notes' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch itinerary' }, { status: 500 });
   }
 }
 
 export async function PUT(req: NextRequest) {
   try {
     const kv = getKV();
-    const { dayId, content, lastEditedBy } = await req.json();
+    const body = await req.json();
+    const { dayId, lastEditedBy } = body;
 
-    const notes = await kv.get<ItineraryNotes>(KV_KEYS.itinerary) ?? {};
-    notes[dayId] = {
-      content,
-      lastEditedBy,
-      lastEditedAt: new Date().toISOString(),
-    };
-    await kv.set(KV_KEYS.itinerary, notes);
+    const data = await kv.get<ItineraryData>(KV_KEYS.itinerary) ?? {};
+    const existing = data[dayId] ?? { notes: '', spots: [], lastEditedBy: '', lastEditedAt: '' };
 
-    return NextResponse.json(notes);
+    // Support updating notes, spots, or both
+    if ('notes' in body) existing.notes = body.notes;
+    if ('spots' in body) existing.spots = body.spots;
+    existing.lastEditedBy = lastEditedBy;
+    existing.lastEditedAt = new Date().toISOString();
+
+    data[dayId] = existing;
+    await kv.set(KV_KEYS.itinerary, data);
+
+    return NextResponse.json(data);
   } catch (error) {
     console.error('PUT /api/itinerary error:', error);
     return NextResponse.json({ error: 'Failed to update itinerary' }, { status: 500 });

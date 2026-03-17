@@ -1,15 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #0A0A0F;
-  --surface: #14141F;
-  --surface-alt: #1E1E2E;
-  --text-primary: #F0EDE6;
-  --text-muted: #8A8690;
-  --accent-violet: #A855F7;
+  --bg: #FAFAFA;
+  --surface: #FFFFFF;
+  --surface-alt: #F5F5F5;
+  --text-primary: #1A1A1A;
+  --text-muted: #888888;
+  --accent: #7C3AED;
+  --accent-light: #EDE9FE;
   --accent-pink: #EC4899;
-  --accent-lime: #BFFF00;
-  --border: #2A2A3A;
+  --accent-lime: #65A30D;
+  --border: #E5E5E5;
+  --border-light: #F0F0F0;
 }
 
 @theme inline {
@@ -18,10 +20,12 @@
   --color-surface-alt: var(--surface-alt);
   --color-text-primary: var(--text-primary);
   --color-text-muted: var(--text-muted);
-  --color-accent-violet: var(--accent-violet);
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
   --color-accent-pink: var(--accent-pink);
   --color-accent-lime: var(--accent-lime);
   --color-border: var(--border);
+  --color-border-light: var(--border-light);
   --font-display: var(--font-syne);
   --font-body: var(--font-instrument-sans);
 }
@@ -32,51 +36,42 @@ body {
   font-family: var(--font-body), system-ui, sans-serif;
 }
 
-/* Scrollbar */
+::selection {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
 ::-webkit-scrollbar {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--surface);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 3px;
 }
 
-/* Hero gradient animation */
-@keyframes gradient-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-
-.hero-gradient {
-  background: linear-gradient(135deg, #0A0A0F 0%, #1a0a2e 25%, #0A0A0F 50%, #0a1a2e 75%, #0A0A0F 100%);
-  background-size: 400% 400%;
-  animation: gradient-shift 15s ease infinite;
-}
-
-/* Mapbox overrides */
+/* Mapbox overrides for light theme */
 .mapboxgl-popup-content {
-  background: var(--surface) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--border) !important;
+  background: #FFFFFF !important;
+  color: #1A1A1A !important;
+  border: 1px solid #E5E5E5 !important;
   border-radius: 12px !important;
   padding: 16px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
 }
 
 .mapboxgl-popup-tip {
-  border-top-color: var(--surface) !important;
+  border-top-color: #FFFFFF !important;
 }
 
 .mapboxgl-popup-close-button {
-  color: var(--text-muted) !important;
+  color: #888 !important;
   font-size: 18px !important;
   padding: 4px 8px !important;
 }
 
-/* Section scroll margin for nav */
 section[id] {
   scroll-margin-top: 72px;
 }

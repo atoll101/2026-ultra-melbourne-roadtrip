@@ -14,15 +14,27 @@ export interface DayNote {
   lastEditedAt: string;
 }
 
-export type ItineraryNotes = Record<string, DayNote>;
+export interface DayPlan {
+  notes: string;
+  spots: string[]; // idea IDs assigned to this day
+  lastEditedBy: string;
+  lastEditedAt: string;
+}
+
+export type ItineraryData = Record<string, DayPlan>;
 
 export interface MelbourneIdea {
   id: string;
   category: string;
   text: string;
+  description?: string;
   author: string;
   upvotedBy: string[];
   createdAt: string;
+  mapsUrl?: string;
+  lng?: number;
+  lat?: number;
+  assignedDay?: string; // day ID if dragged to itinerary
 }
 
 export interface NotepadData {
@@ -31,11 +43,12 @@ export interface NotepadData {
   lastEditedAt: string;
 }
 
-export interface ChecklistItem {
-  id: string;
-  label: string;
-  checked: boolean;
-  addedBy: string;
+export interface ExtractedPlace {
+  name: string;
+  description: string;
+  category: string;
+  lat?: number;
+  lng?: number;
 }
 
 export interface KVStore {

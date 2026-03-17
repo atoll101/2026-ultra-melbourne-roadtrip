@@ -3,9 +3,9 @@ export const TRIP_DATES = {
   days: [
     { id: 'day-1', date: '2026-04-08', label: 'Day 1 — Wed Apr 8 · Sydney → Albury' },
     { id: 'day-2', date: '2026-04-09', label: 'Day 2 — Thu Apr 9 · Albury → Melbourne' },
-    { id: 'day-3', date: '2026-04-10', label: 'Day 3 — Fri Apr 10 · Ultra Day 1' },
-    { id: 'day-4', date: '2026-04-11', label: 'Day 4 — Sat Apr 11 · Ultra Day 2' },
-    { id: 'day-5', date: '2026-04-12', label: 'Day 5 — Sun Apr 12 · Ultra Day 3' },
+    { id: 'day-3', date: '2026-04-10', label: 'Day 3 — Fri Apr 10 · Melbourne' },
+    { id: 'day-4', date: '2026-04-11', label: 'Day 4 — Sat Apr 11 · Ultra' },
+    { id: 'day-5', date: '2026-04-12', label: 'Day 5 — Sun Apr 12 · Melbourne' },
   ],
 } as const;
 
@@ -48,30 +48,11 @@ export const MELBOURNE_CATEGORIES = [
 
 export type MelbourneCategory = (typeof MELBOURNE_CATEGORIES)[number];
 
-export const SEED_CHECKLIST = [
-  { label: 'Driving assignment sorted', addedBy: 'System' },
-  { label: 'Airbnb check-in codes', addedBy: 'System' },
-  { label: 'CityLink toll tag / pass', addedBy: 'System' },
-  { label: 'Ultra tickets (digital or printed)', addedBy: 'System' },
-  { label: 'Earplugs', addedBy: 'System' },
-  { label: 'Sunscreen', addedBy: 'System' },
-  { label: 'Portable charger + cables', addedBy: 'System' },
-  { label: 'Cash (for food stalls)', addedBy: 'System' },
-  { label: 'Photo ID', addedBy: 'System' },
-  { label: 'Sunnies', addedBy: 'System' },
-  { label: 'Comfy shoes', addedBy: 'System' },
-  { label: 'Snacks for the drive', addedBy: 'System' },
-  { label: 'Water bottles', addedBy: 'System' },
-  { label: 'AUX cable / Bluetooth adapter', addedBy: 'System' },
-  { label: 'Road trip playlist ready', addedBy: 'System' },
-];
-
 export const KV_KEYS = {
   stops: 'stops',
   itinerary: 'itinerary_notes',
   ideas: 'melbourne_ideas',
   notepad: 'notepad',
-  checklist: 'checklist',
 } as const;
 
 export const POLL_INTERVAL = 12000; // 12 seconds

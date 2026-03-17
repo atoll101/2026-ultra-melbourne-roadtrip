@@ -11,50 +11,50 @@ export default function NamePrompt({ onSubmit }: NamePromptProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    // Trigger entrance animation on mount
     requestAnimationFrame(() => setVisible(true));
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = value.trim();
-    if (trimmed) {
-      onSubmit(trimmed);
-    }
+    if (trimmed) onSubmit(trimmed);
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 transition-opacity duration-500"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm transition-opacity duration-300"
       style={{ opacity: visible ? 1 : 0 }}
     >
       <form
         onSubmit={handleSubmit}
-        className="relative w-full max-w-md mx-4 rounded-2xl bg-surface border border-border p-8 shadow-2xl transition-all duration-500"
+        className="w-full max-w-sm mx-6 rounded-2xl bg-white border border-border p-8 shadow-xl transition-all duration-300"
         style={{
           opacity: visible ? 1 : 0,
-          transform: visible ? 'scale(1)' : 'scale(0.9)',
+          transform: visible ? 'translateY(0)' : 'translateY(8px)',
         }}
       >
-        <h2 className="font-display text-3xl font-bold text-text-primary mb-6 text-center">
+        <h2 className="font-display text-xl font-bold text-text-primary mb-1 text-center">
           What&apos;s your name?
         </h2>
+        <p className="text-text-muted text-sm text-center mb-6">
+          So everyone knows who&apos;s editing
+        </p>
 
         <input
           type="text"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="Enter your name..."
+          placeholder="Your name"
           autoFocus
-          className="w-full rounded-xl bg-surface-alt border border-border px-4 py-3 text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-violet transition-colors"
+          className="w-full rounded-lg bg-surface-alt border border-border px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
         />
 
         <button
           type="submit"
           disabled={!value.trim()}
-          className="mt-4 w-full rounded-xl bg-accent-violet px-6 py-3 font-display font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="mt-3 w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-30"
         >
-          Let&apos;s go
+          Continue
         </button>
       </form>
     </div>

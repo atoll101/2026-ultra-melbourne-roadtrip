@@ -19,7 +19,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const kv = getKV();
-    const { category, text, author } = await req.json();
+    const { category, text, author, mapsUrl, lng, lat, description } = await req.json();
 
     const newIdea: MelbourneIdea = {
       id: crypto.randomUUID(),
@@ -28,6 +28,9 @@ export async function POST(req: NextRequest) {
       author,
       upvotedBy: [],
       createdAt: new Date().toISOString(),
+      ...(description && { description }),
+      ...(mapsUrl && { mapsUrl }),
+      ...(lng != null && lat != null && { lng, lat }),
     };
 
     const ideas = await kv.get<MelbourneIdea[]>(KV_KEYS.ideas) ?? [];
@@ -41,10 +44,24 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function DELETE(req: NextRequest) {
+  try {
+    const kv = getKV();
+    const { id } = await req.json();
+    const ideas = await kv.get<MelbourneIdea[]>(KV_KEYS.ideas) ?? [];
+    const filtered = ideas.filter((i) => i.id !== id);
+    await kv.set(KV_KEYS.ideas, filtered);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('DELETE /api/ideas error:', error);
+    return NextResponse.json({ error: 'Failed to delete idea' }, { status: 500 });
+  }
+}
+
 export async function PUT(req: NextRequest) {
   try {
     const kv = getKV();
-    const { id, userName } = await req.json();
+    const { id, userName, assignedDay } = await req.json();
 
     const ideas = await kv.get<MelbourneIdea[]>(KV_KEYS.ideas) ?? [];
     const idea = ideas.find((i) => i.id === id);
@@ -53,11 +70,14 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Idea not found' }, { status: 404 });
     }
 
-    const idx = idea.upvotedBy.indexOf(userName);
-    if (idx >= 0) {
-      idea.upvotedBy.splice(idx, 1);
+    // Assign/unassign to a day
+    if (assignedDay !== undefined) {
+      idea.assignedDay = assignedDay || undefined;
     } else {
-      idea.upvotedBy.push(userName);
+      // Toggle upvote
+      const idx = idea.upvotedBy.indexOf(userName);
+      if (idx >= 0) idea.upvotedBy.splice(idx, 1);
+      else idea.upvotedBy.push(userName);
     }
 
     await kv.set(KV_KEYS.ideas, ideas);
