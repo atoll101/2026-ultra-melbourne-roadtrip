@@ -6,7 +6,7 @@ export default function Hero() {
   const { days, hours, minutes, seconds, passed } = useCountdown();
 
   return (
-    <section className="pt-16 pb-8 px-6 max-w-2xl mx-auto">
+    <section className="pt-16 pb-8 px-4 md:px-6 max-w-2xl mx-auto">
       <p className="text-text-muted text-xs tracking-[0.15em] uppercase mb-3">
         Ultra Australia 2026
       </p>

@@ -58,7 +58,7 @@ export default function SharedNotepad({ userName }: { userName: string }) {
   const time = lastEditedAt ? new Date(lastEditedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
   return (
-    <section id="notepad" className="py-10 px-6 max-w-2xl mx-auto">
+    <section id="notepad" className="py-10 px-4 md:px-6 max-w-2xl mx-auto">
       <h2 className="font-display text-lg font-bold text-text-primary mb-1">Notepad</h2>
       <p className="text-text-muted text-sm mb-4">Shared space — everyone can see and edit.</p>
 

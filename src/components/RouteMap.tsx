@@ -125,12 +125,12 @@ export default function RouteMap({ userName }: { userName: string }) {
   };
 
   return (
-    <section id="route" className="py-10 px-6 max-w-2xl mx-auto">
+    <section id="route" className="py-10 px-4 md:px-6 max-w-2xl mx-auto">
       <h2 className="font-display text-lg font-bold text-text-primary mb-1">Route</h2>
       <p className="text-text-muted text-sm mb-4">Click the map to add a pit stop along the way.</p>
 
       <div className="rounded-xl overflow-hidden border border-border shadow-sm">
-        <div ref={mapContainerRef} className="w-full h-[400px]" />
+        <div ref={mapContainerRef} className="w-full h-[300px] md:h-[400px]" />
       </div>
 
       {stops.length > 0 && (
@@ -143,7 +143,7 @@ export default function RouteMap({ userName }: { userName: string }) {
                 <span className="text-sm text-text-primary truncate">{stop.name}</span>
                 <span className="text-xs text-text-muted">&middot; {stop.addedBy}</span>
               </div>
-              <button onClick={() => handleDelete(stop.id)} className="text-text-muted hover:text-red-500 text-xs opacity-0 group-hover:opacity-100 transition-opacity">&times;</button>
+              <button onClick={() => handleDelete(stop.id)} className="text-text-muted hover:text-red-500 text-sm p-1">&times;</button>
             </div>
           ))}
         </div>

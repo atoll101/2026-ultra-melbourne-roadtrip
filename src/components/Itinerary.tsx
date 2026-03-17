@@ -130,7 +130,7 @@ export default function Itinerary({ userName }: { userName: string }) {
   const getIdea = (id: string) => ideas.find((i) => i.id === id);
 
   return (
-    <section id="itinerary" className="py-10 px-6 max-w-2xl mx-auto">
+    <section id="itinerary">
       <h2 className="font-display text-lg font-bold text-text-primary mb-1">Itinerary</h2>
       <p className="text-text-muted text-sm mb-6">Drag spots from above into each day. Click to expand and add notes.</p>
 
@@ -199,7 +199,7 @@ export default function Itinerary({ userName }: { userName: string }) {
                           </div>
                           <button
                             onClick={() => removeSpotFromDay(spot.id, day.id)}
-                            className="text-text-muted hover:text-red-500 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="text-text-muted hover:text-red-500 text-sm p-1"
                             title="Remove from this day"
                           >
                             &times;

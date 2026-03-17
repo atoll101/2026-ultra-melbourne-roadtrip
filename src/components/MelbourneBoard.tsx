@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { POLL_INTERVAL, MELBOURNE_CATEGORIES } from '@/lib/constants';
+import { POLL_INTERVAL, MELBOURNE_CATEGORIES, TRIP_DATES } from '@/lib/constants';
 import type { MelbourneIdea, ExtractedPlace } from '@/lib/types';
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -31,6 +31,7 @@ export default function MelbourneBoard({ userName }: { userName: string }) {
   const [activeCategory, setActiveCategory] = useState<string>(MELBOURNE_CATEGORIES[0]);
   const [inputText, setInputText] = useState('');
   const [extracting, setExtracting] = useState(false);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -170,6 +171,17 @@ export default function MelbourneBoard({ userName }: { userName: string }) {
     } catch { fetchIdeas(); }
   };
 
+  const assignToDay = async (ideaId: string, dayId: string) => {
+    setAssigningId(null);
+    setIdeas((prev) => prev.map((i) => i.id === ideaId ? { ...i, assignedDay: dayId } : i));
+    try {
+      await Promise.all([
+        fetch('/api/ideas', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ideaId, userName, assignedDay: dayId }) }),
+        fetch('/api/itinerary', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dayId, spots: [ideaId], lastEditedBy: userName }) }),
+      ]);
+    } catch { fetchIdeas(); }
+  };
+
   const handleDragStart = (e: React.DragEvent, ideaId: string) => {
     e.dataTransfer.setData('text/plain', ideaId);
     e.dataTransfer.effectAllowed = 'move';
@@ -179,7 +191,7 @@ export default function MelbourneBoard({ userName }: { userName: string }) {
   const withCoords = ideas.filter((i) => i.lng != null && i.lat != null);
 
   return (
-    <section id="melbourne" className="py-10 px-6 max-w-2xl mx-auto">
+    <section id="melbourne">
       <h2 className="font-display text-lg font-bold text-text-primary mb-1">Melbourne Spots</h2>
       <p className="text-text-muted text-sm mb-6">
         Paste a Google Maps link and AI will extract the details. Vote on spots, then drag them into the itinerary.
@@ -187,7 +199,7 @@ export default function MelbourneBoard({ userName }: { userName: string }) {
 
       {/* Mini map */}
       {withCoords.length > 0 && (
-        <div ref={mapContainerRef} className="w-full h-[240px] rounded-xl overflow-hidden border border-border shadow-sm mb-6" />
+        <div ref={mapContainerRef} className="w-full h-[200px] md:h-[240px] rounded-xl overflow-hidden border border-border shadow-sm mb-6" />
       )}
       {withCoords.length === 0 && <div ref={mapContainerRef} className="hidden" />}
 
@@ -234,48 +246,69 @@ export default function MelbourneBoard({ userName }: { userName: string }) {
         )}
         {categoryIdeas.map((idea) => {
           const has = idea.upvotedBy.includes(userName);
+          const isAssigning = assigningId === idea.id;
           return (
-            <div
-              key={idea.id}
-              draggable
-              onDragStart={(e) => handleDragStart(e, idea.id)}
-              className="flex items-center justify-between gap-3 bg-white rounded-lg border border-border px-4 py-3 shadow-sm cursor-grab active:cursor-grabbing hover:border-accent/30 transition-colors group"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <svg className="w-3 h-3 text-text-muted/40 flex-shrink-0 group-hover:text-text-muted" viewBox="0 0 20 20" fill="currentColor">
-                    <circle cx="7" cy="6" r="1.5"/><circle cx="13" cy="6" r="1.5"/><circle cx="7" cy="10" r="1.5"/><circle cx="13" cy="10" r="1.5"/><circle cx="7" cy="14" r="1.5"/><circle cx="13" cy="14" r="1.5"/>
-                  </svg>
-                  <span className="text-sm text-text-primary">{idea.text}</span>
-                  {idea.mapsUrl && (
-                    <a href={idea.mapsUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:opacity-70 flex-shrink-0" title="Open in Google Maps">
-                      <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.22 14.78a.75.75 0 001.06 0l7.22-7.22v5.69a.75.75 0 001.5 0v-7.5a.75.75 0 00-.75-.75h-7.5a.75.75 0 000 1.5h5.69l-7.22 7.22a.75.75 0 000 1.06z" clipRule="evenodd" /></svg>
-                    </a>
-                  )}
+            <div key={idea.id} className="bg-white rounded-lg border border-border shadow-sm overflow-hidden">
+              <div
+                draggable
+                onDragStart={(e) => handleDragStart(e, idea.id)}
+                className="flex items-center justify-between gap-3 px-4 py-3 cursor-grab active:cursor-grabbing hover:border-accent/30 transition-colors group"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-3 h-3 text-text-muted/40 flex-shrink-0 hidden md:block" viewBox="0 0 20 20" fill="currentColor">
+                      <circle cx="7" cy="6" r="1.5"/><circle cx="13" cy="6" r="1.5"/><circle cx="7" cy="10" r="1.5"/><circle cx="13" cy="10" r="1.5"/><circle cx="7" cy="14" r="1.5"/><circle cx="13" cy="14" r="1.5"/>
+                    </svg>
+                    <span className="text-sm text-text-primary">{idea.text}</span>
+                    {idea.mapsUrl && (
+                      <a href={idea.mapsUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:opacity-70 flex-shrink-0" title="Open in Google Maps">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.22 14.78a.75.75 0 001.06 0l7.22-7.22v5.69a.75.75 0 001.5 0v-7.5a.75.75 0 00-.75-.75h-7.5a.75.75 0 000 1.5h5.69l-7.22 7.22a.75.75 0 000 1.06z" clipRule="evenodd" /></svg>
+                      </a>
+                    )}
+                  </div>
+                  {idea.description && <p className="text-xs text-text-muted mt-0.5 md:ml-5">{idea.description}</p>}
+                  <span className="text-xs text-text-muted md:ml-5">{idea.author}</span>
                 </div>
-                {idea.description && <p className="text-xs text-text-muted mt-0.5 ml-5">{idea.description}</p>}
-                <span className="text-xs text-text-muted ml-5">{idea.author}</span>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {/* Assign to day — mobile tap alternative to drag */}
+                  <button onClick={() => setAssigningId(isAssigning ? null : idea.id)}
+                    className="text-accent hover:opacity-70 p-1" title="Add to day">
+                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                  </button>
+                  <button onClick={() => toggleUpvote(idea.id)}
+                    className={`flex items-center gap-1 text-xs p-1 transition-colors ${has ? 'text-accent-pink' : 'text-text-muted hover:text-accent-pink'}`}>
+                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill={has ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
+                    </svg>
+                    {idea.upvotedBy.length > 0 && <span>{idea.upvotedBy.length}</span>}
+                  </button>
+                  <button onClick={() => deleteIdea(idea.id)}
+                    className="text-text-muted hover:text-red-500 text-sm p-1" title="Delete">
+                    &times;
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button onClick={() => toggleUpvote(idea.id)}
-                  className={`flex items-center gap-1 text-xs transition-colors ${has ? 'text-accent-pink' : 'text-text-muted hover:text-accent-pink'}`}>
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill={has ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
-                  </svg>
-                  {idea.upvotedBy.length > 0 && <span>{idea.upvotedBy.length}</span>}
-                </button>
-                <button onClick={() => deleteIdea(idea.id)}
-                  className="text-text-muted hover:text-red-500 text-xs opacity-0 group-hover:opacity-100 transition-opacity" title="Delete">
-                  &times;
-                </button>
-              </div>
+              {/* Day picker dropdown */}
+              {isAssigning && (
+                <div className="border-t border-border bg-surface-alt px-4 py-2 flex flex-wrap gap-1.5">
+                  <span className="text-xs text-text-muted mr-1 self-center">Add to:</span>
+                  {TRIP_DATES.days.map((day) => (
+                    <button key={day.id} onClick={() => assignToDay(idea.id, day.id)}
+                      className="text-xs px-2.5 py-1.5 rounded-md bg-white border border-border text-text-primary hover:border-accent hover:text-accent transition-colors">
+                      {day.label.split(' · ')[0].replace('Day ', 'D')}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
       <p className="text-xs text-text-muted mt-4 text-center">
-        Drag spots into the Itinerary section below to plan your days
+        Tap + to assign a spot to a day, or drag on desktop
       </p>
     </section>
   );
