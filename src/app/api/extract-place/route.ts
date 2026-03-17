@@ -33,7 +33,7 @@ async function geocodePlace(name: string): Promise<{ lat: number; lng: number } 
   if (!token) return null;
   try {
     const query = encodeURIComponent(`${name}, Melbourne, Australia`);
-    const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&limit=1&bbox=144.5,-38.1,145.5,-37.5`);
+    const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&limit=1&bbox=144.85,-37.87,145.05,-37.7&proximity=144.97,-37.81`);
     if (!res.ok) return null;
     const data = await res.json();
     if (data.features?.length > 0) {

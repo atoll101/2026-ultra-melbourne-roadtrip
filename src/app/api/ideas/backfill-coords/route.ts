@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getKV } from '@/lib/kv';
 import { KV_KEYS } from '@/lib/constants';
 import type { MelbourneIdea } from '@/lib/types';
@@ -30,7 +30,7 @@ async function geocodePlace(name: string): Promise<{ lat: number; lng: number } 
   if (!token) return null;
   try {
     const query = encodeURIComponent(`${name}, Melbourne, Australia`);
-    const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&limit=1&bbox=144.5,-38.1,145.5,-37.5`);
+    const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&limit=1&bbox=144.85,-37.87,145.05,-37.7&proximity=144.97,-37.81`);
     if (!res.ok) return null;
     const data = await res.json();
     if (data.features?.length > 0) {
@@ -43,18 +43,21 @@ async function geocodePlace(name: string): Promise<{ lat: number; lng: number } 
   }
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
     const kv = getKV();
     const ideas = await kv.get<MelbourneIdea[]>(KV_KEYS.ideas) ?? [];
-    const missing = ideas.filter((i) => i.lat == null || i.lng == null);
+    // Re-geocode all spots (force=true) or just missing ones
+    const url = new URL(req.url);
+    const force = url.searchParams.get('force') === 'true';
+    const toFix = force ? ideas : ideas.filter((i) => i.lat == null || i.lng == null);
 
-    if (missing.length === 0) {
+    if (toFix.length === 0) {
       return NextResponse.json({ message: 'All ideas already have coordinates', updated: 0 });
     }
 
     let updated = 0;
-    for (const idea of missing) {
+    for (const idea of toFix) {
       // Try 1: resolve shortened URL and parse coords
       if (idea.mapsUrl) {
         const resolved = await resolveUrl(idea.mapsUrl);
@@ -76,7 +79,7 @@ export async function POST() {
     }
 
     await kv.set(KV_KEYS.ideas, ideas);
-    return NextResponse.json({ message: `Backfilled ${updated} of ${missing.length} ideas`, updated, total: missing.length });
+    return NextResponse.json({ message: `Backfilled ${updated} of ${toFix.length} ideas`, updated, total: toFix.length });
   } catch (error) {
     console.error('POST /api/ideas/backfill-coords error:', error);
     return NextResponse.json({ error: 'Failed to backfill coordinates' }, { status: 500 });

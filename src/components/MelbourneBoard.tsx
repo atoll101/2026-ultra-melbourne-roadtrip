@@ -74,8 +74,12 @@ export default function MelbourneBoard({ userName }: { userName: string }) {
       const bounds = new mapboxgl.LngLatBounds();
       withCoords.forEach((idea) => {
         const el = document.createElement('div');
-        Object.assign(el.style, { width: '10px', height: '10px', borderRadius: '50%', background: '#7C3AED', border: '2px solid white', cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' });
-        const popup = new mapboxgl.Popup({ offset: 8, maxWidth: '200px' }).setHTML(`
+        const label = document.createElement('span');
+        label.textContent = idea.text;
+        Object.assign(label.style, { position: 'absolute', left: '100%', marginLeft: '6px', whiteSpace: 'nowrap', fontSize: '11px', fontWeight: '600', fontFamily: 'system-ui', color: '#4C1D95', pointerEvents: 'none', textShadow: '0 0 3px white, 0 0 3px white, 0 0 3px white' });
+        Object.assign(el.style, { width: '16px', height: '16px', borderRadius: '50%', background: '#7C3AED', border: '2.5px solid white', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.3)', position: 'relative' });
+        el.appendChild(label);
+        const popup = new mapboxgl.Popup({ offset: 10, maxWidth: '200px' }).setHTML(`
           <div style="font-size:12px;font-family:system-ui;"><div style="font-weight:600;">${esc(idea.text)}</div>
           ${idea.description ? `<div style="color:#888;font-size:11px;margin-top:2px;">${esc(idea.description)}</div>` : ''}
           <div style="color:#888;font-size:11px;margin-top:2px;">${CATEGORY_EMOJI[idea.category] ?? ''} ${esc(idea.category)}</div>
@@ -84,8 +88,9 @@ export default function MelbourneBoard({ userName }: { userName: string }) {
         markersRef.current.push(marker);
         bounds.extend([idea.lng!, idea.lat!]);
       });
-      if (withCoords.length > 1) map.fitBounds(bounds, { padding: 50, maxZoom: 14 });
-      else { map.setCenter([withCoords[0].lng!, withCoords[0].lat!]); map.setZoom(14); }
+      // Center on inner Melbourne; don't let outlier geocodes zoom out too far
+      map.setCenter([144.97, -37.8]);
+      map.setZoom(12);
     };
     init();
   }, [ideas]);
