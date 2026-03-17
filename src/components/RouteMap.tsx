@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { COORDINATES, ROUTE_GEOJSON, POLL_INTERVAL } from '@/lib/constants';
+import { COORDINATES, PICKUP_POINTS, ROUTE_GEOJSON, POLL_INTERVAL } from '@/lib/constants';
 import type { PitStop, ExtractedPlace } from '@/lib/types';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
@@ -96,7 +96,10 @@ export default function RouteMap({ userName }: { userName: string }) {
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: { 'line-color': '#7C3AED', 'line-width': 3, 'line-opacity': 0.7 },
       });
-      addCityMarker(map, COORDINATES.sydney, 'Sydney');
+      // Pickup point markers (small dots, no labels)
+      PICKUP_POINTS.forEach((pt) => {
+        addPickupMarker(map, pt);
+      });
       addCityMarker(map, COORDINATES.albury, 'Albury');
       addCityMarker(map, COORDINATES.melbourne, 'Melbourne');
       setMapReady(true);
@@ -112,7 +115,7 @@ export default function RouteMap({ userName }: { userName: string }) {
 
     const confirmed = sortStopsAlongRoute(stops.filter((s) => s.confirmed));
     const waypoints = [
-      COORDINATES.sydney,
+      ...PICKUP_POINTS.map((p) => ({ lng: p.lng, lat: p.lat })),
       ...confirmed.map((s) => ({ lng: s.lng, lat: s.lat })),
       COORDINATES.albury,
       COORDINATES.melbourne,
@@ -281,29 +284,28 @@ export default function RouteMap({ userName }: { userName: string }) {
             <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Departure</p>
             <p className="text-2xl font-display font-bold text-accent">4:00 PM</p>
             <p className="text-sm text-text-primary mt-1">Wed Apr 8</p>
-            <p className="text-xs text-text-muted mt-1">Departing Sydney</p>
           </div>
 
           <div className="bg-white rounded-lg border border-border p-3 shadow-sm">
             <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Route</p>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2">
+            <div className="space-y-0">
+              <div className="flex items-center gap-2 py-1.5 border-b border-border/50">
                 <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
-                <span className="text-text-primary">Sydney</span>
+                <span className="text-xs font-medium text-text-primary">Sydney</span>
               </div>
               {confirmed.map((stop) => (
-                <div key={stop.id} className="flex items-center gap-2 ml-1 border-l border-border pl-3">
-                  <span className="w-1.5 h-1.5 rounded-full bg-accent/60 flex-shrink-0" />
-                  <span className="text-text-primary text-xs truncate">{stop.name}</span>
+                <div key={stop.id} className="flex items-center gap-2 py-1.5 border-b border-border/50 last:border-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent/60 flex-shrink-0 ml-1" />
+                  <span className="text-xs text-text-primary truncate">{stop.name}</span>
                 </div>
               ))}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 py-1.5 border-b border-border/50">
                 <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
-                <span className="text-text-primary">Albury</span>
+                <span className="text-xs font-medium text-text-primary">Albury</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 py-1.5">
                 <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
-                <span className="text-text-primary">Melbourne</span>
+                <span className="text-xs font-medium text-text-primary">Melbourne</span>
               </div>
             </div>
           </div>
@@ -395,6 +397,15 @@ function addCityMarker(map: mapboxgl.Map, coords: { lng: number; lat: number }, 
   Object.assign(text.style, { color: '#1A1A1A', fontSize: '10px', fontWeight: '600', fontFamily: 'system-ui', whiteSpace: 'nowrap' });
   el.appendChild(dot);
   el.appendChild(text);
+  new mapboxgl.Marker({ element: el }).setLngLat([coords.lng, coords.lat]).addTo(map);
+}
+
+function addPickupMarker(map: mapboxgl.Map, coords: { lng: number; lat: number }) {
+  const el = document.createElement('div');
+  Object.assign(el.style, {
+    width: '8px', height: '8px', borderRadius: '50%', background: '#7C3AED',
+    border: '2px solid white', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+  });
   new mapboxgl.Marker({ element: el }).setLngLat([coords.lng, coords.lat]).addTo(map);
 }
 

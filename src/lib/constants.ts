@@ -26,6 +26,13 @@ export const COORDINATES = {
   melbourne: { lng: 144.9631, lat: -37.8136 },
 } as const;
 
+// Pickup points in order
+export const PICKUP_POINTS = [
+  { lng: 151.228375, lat: -33.955376, label: 'Beauchamp Rd, Hillsdale' },
+  { lng: 151.23931, lat: -33.951259, label: 'Robey St, Maroubra' },
+  { lng: 150.98838, lat: -33.892711, label: 'Mundamatta St, Villawood' },
+] as const;
+
 // Simplified route GeoJSON (Sydney → Albury → Melbourne via Hume Highway)
 export const ROUTE_GEOJSON: GeoJSON.Feature<GeoJSON.LineString> = {
   type: 'Feature',
