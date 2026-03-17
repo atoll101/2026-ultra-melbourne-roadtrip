@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useAutosave } from '@/hooks/useAutosave';
 import { POLL_INTERVAL, TRIP_DATES, ACCOMMODATION } from '@/lib/constants';
+
+const DayMap = dynamic(() => import('@/components/DayMap'), { ssr: false });
 import type { ItineraryData, DayPlan, MelbourneIdea } from '@/lib/types';
 
 const EMPTY_DAY: DayPlan = { notes: '', spots: [], lastEditedBy: '', lastEditedAt: '' };
@@ -204,6 +207,11 @@ export default function Itinerary({ userName }: { userName: string }) {
                         </div>
                       ))}
                     </div>
+                  )}
+
+                  {/* Day map */}
+                  {assignedSpots.some((s) => s.lng != null && s.lat != null) && (
+                    <DayMap spots={assignedSpots} />
                   )}
 
                   {/* Drop zone hint */}
