@@ -1,12 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-import { COORDINATES, PICKUP_POINTS, ROUTE_GEOJSON, POLL_INTERVAL } from '@/lib/constants';
+import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
+import { COORDINATES, PICKUP_POINTS, POLL_INTERVAL } from '@/lib/constants';
 import type { PitStop, ExtractedPlace } from '@/lib/types';
-
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
 
 function isGoogleMapsUrl(text: string): boolean {
   return /google\.\w+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps/.test(text);
@@ -22,28 +19,6 @@ function parseMapsUrl(url: string): { lat: number; lng: number } | null {
   return null;
 }
 
-// Fetch road-following route from Mapbox Directions API
-async function fetchDirectionsRoute(
-  waypoints: { lng: number; lat: number }[]
-): Promise<GeoJSON.Feature<GeoJSON.LineString> | null> {
-  if (waypoints.length < 2) return null;
-  const coords = waypoints.map((w) => `${w.lng},${w.lat}`).join(';');
-  const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coords}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data.routes?.[0]?.geometry) return null;
-    return {
-      type: 'Feature',
-      properties: {},
-      geometry: data.routes[0].geometry,
-    };
-  } catch {
-    return null;
-  }
-}
-
 // Sort confirmed stops geographically along the route (by distance from Sydney)
 function sortStopsAlongRoute(stops: PitStop[]): PitStop[] {
   const start = COORDINATES.sydney;
@@ -54,14 +29,37 @@ function sortStopsAlongRoute(stops: PitStop[]): PitStop[] {
   });
 }
 
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.round((seconds % 3600) / 60);
+  if (h === 0) return `${m}m`;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function addMinutes(date: Date, mins: number): Date {
+  return new Date(date.getTime() + mins * 60000);
+}
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase();
+}
+
+interface LegInfo {
+  label: string;
+  durationSec: number;
+  departTime: Date;
+  arriveTime: Date;
+}
+
 export default function RouteMap({ userName }: { userName: string }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
-  const stopMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const [stops, setStops] = useState<PitStop[]>([]);
   const [inputText, setInputText] = useState('');
   const [extracting, setExtracting] = useState(false);
-  const [mapReady, setMapReady] = useState(false);
+  const [legs, setLegs] = useState<LegInfo[]>([]);
 
   const fetchStops = useCallback(async () => {
     try {
@@ -78,87 +76,143 @@ export default function RouteMap({ userName }: { userName: string }) {
     return () => clearInterval(interval);
   }, [fetchStops]);
 
-  // Init map
+  // Init map + directions
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
-    const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/light-v11',
-      center: [COORDINATES.albury.lng, COORDINATES.albury.lat],
-      zoom: 5.5,
-    });
-    map.addControl(new mapboxgl.NavigationControl(), 'top-left');
-    map.on('load', () => {
-      // Start with the static fallback route, will be replaced by directions
-      map.addSource('route', { type: 'geojson', data: ROUTE_GEOJSON });
-      map.addLayer({
-        id: 'route-line', type: 'line', source: 'route',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#7C3AED', 'line-width': 3, 'line-opacity': 0.7 },
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? '';
+    if (!apiKey) return;
+
+    setOptions({ key: apiKey, v: 'weekly' });
+
+    const init = async () => {
+      const { Map } = await importLibrary('maps') as google.maps.MapsLibrary;
+
+      const map = new Map(mapContainerRef.current!, {
+        center: { lat: COORDINATES.albury.lat, lng: COORDINATES.albury.lng },
+        zoom: 6,
+        mapId: 'route-map',
+        disableDefaultUI: true,
+        zoomControl: true,
+        gestureHandling: 'cooperative',
       });
-      // Pickup point markers (small dots, no labels)
-      PICKUP_POINTS.forEach((pt) => {
-        addPickupMarker(map, pt);
-      });
-      addCityMarker(map, COORDINATES.albury, 'Albury');
-      addCityMarker(map, COORDINATES.melbourne, 'Melbourne');
-      setMapReady(true);
-    });
-    mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; };
+      mapRef.current = map;
+    };
+    init();
+
+    return () => { mapRef.current = null; };
   }, []);
 
-  // Fetch road-following directions & update route whenever confirmed stops change
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady) return;
-
-    const confirmed = sortStopsAlongRoute(stops.filter((s) => s.confirmed));
-    const waypoints = [
-      ...PICKUP_POINTS.map((p) => ({ lng: p.lng, lat: p.lat })),
-      ...confirmed.map((s) => ({ lng: s.lng, lat: s.lat })),
-      COORDINATES.albury,
-      COORDINATES.melbourne,
-    ];
-
-    fetchDirectionsRoute(waypoints).then((route) => {
-      const source = map.getSource('route') as mapboxgl.GeoJSONSource | undefined;
-      if (source && route) {
-        source.setData(route);
-      }
-    });
-  }, [stops, mapReady]);
-
-  // Sync stop markers
+  // Update route when confirmed stops change
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    stopMarkersRef.current.forEach((m) => m.remove());
-    stopMarkersRef.current = [];
 
-    stops.forEach((stop) => {
-      const el = document.createElement('div');
-      const color = stop.confirmed ? '#7C3AED' : '#888888';
-      Object.assign(el.style, {
-        width: stop.confirmed ? '12px' : '10px',
-        height: stop.confirmed ? '12px' : '10px',
-        borderRadius: '50%', background: color,
-        border: '2px solid white', cursor: 'pointer',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+    const updateRoute = async () => {
+      const { DirectionsService, DirectionsRenderer } = await importLibrary('routes') as google.maps.RoutesLibrary;
+      const { AdvancedMarkerElement } = await importLibrary('marker') as google.maps.MarkerLibrary;
+
+      // Clear old
+      if (directionsRendererRef.current) directionsRendererRef.current.setMap(null);
+      markersRef.current.forEach((m) => (m.map = null));
+      markersRef.current = [];
+
+      const confirmed = sortStopsAlongRoute(stops.filter((s) => s.confirmed));
+
+      // Build waypoints: pickups + confirmed stops (between Sydney and Albury)
+      const day1Waypoints = [
+        ...PICKUP_POINTS.map((p) => ({ location: new google.maps.LatLng(p.lat, p.lng), stopover: true })),
+        ...confirmed.map((s) => ({ location: new google.maps.LatLng(s.lat, s.lng), stopover: true })),
+        { location: new google.maps.LatLng(COORDINATES.albury.lat, COORDINATES.albury.lng), stopover: true },
+      ];
+
+      const directionsService = new DirectionsService();
+      const renderer = new DirectionsRenderer({
+        map,
+        suppressMarkers: true,
+        polylineOptions: { strokeColor: '#7C3AED', strokeWeight: 4, strokeOpacity: 0.8 },
+      });
+      directionsRendererRef.current = renderer;
+
+      try {
+        const result = await directionsService.route({
+          origin: new google.maps.LatLng(COORDINATES.sydney.lat, COORDINATES.sydney.lng),
+          destination: new google.maps.LatLng(COORDINATES.melbourne.lat, COORDINATES.melbourne.lng),
+          waypoints: day1Waypoints,
+          travelMode: google.maps.TravelMode.DRIVING,
+          optimizeWaypoints: false,
+        });
+
+        renderer.setDirections(result);
+
+        // Calculate leg times
+        const routeLegs = result.routes[0]?.legs ?? [];
+        if (routeLegs.length > 0) {
+          // Day 1: Sydney → Albury (all legs up to Albury waypoint)
+          // Albury is the last waypoint before Melbourne, so all legs except the last = Day 1
+          const alburyIdx = day1Waypoints.length; // legs count = waypoints + 1 (origin to dest)
+          // Actually: legs = waypoints.length + 1 if we count origin→wp1, wp1→wp2, ..., wpN→dest
+          // Day 1 legs: index 0 to (alburyIdx - 1) — up to and including arrival at Albury
+          // Day 2 leg: last leg (Albury → Melbourne)
+
+          const day1Legs = routeLegs.slice(0, -1); // everything except last
+          const day2Leg = routeLegs[routeLegs.length - 1]; // last = Albury → Melbourne
+
+          const day1Duration = day1Legs.reduce((sum, l) => sum + (l.duration?.value ?? 0), 0);
+          const day2Duration = day2Leg.duration?.value ?? 0;
+
+          const day1Depart = new Date('2026-04-08T16:00:00+10:00');
+          const day1Arrive = addMinutes(day1Depart, day1Duration / 60);
+          const day2Depart = new Date('2026-04-09T10:00:00+10:00');
+          const day2Arrive = addMinutes(day2Depart, day2Duration / 60);
+
+          setLegs([
+            { label: 'Sydney → Albury', durationSec: day1Duration, departTime: day1Depart, arriveTime: day1Arrive },
+            { label: 'Albury → Melbourne', durationSec: day2Duration, departTime: day2Depart, arriveTime: day2Arrive },
+          ]);
+        }
+      } catch (e) {
+        console.error('Directions request failed:', e);
+      }
+
+      // Add custom markers for key locations
+      const addMarker = (lat: number, lng: number, label: string, color: string) => {
+        const el = document.createElement('div');
+        el.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;';
+        const dot = document.createElement('div');
+        dot.style.cssText = `width:10px;height:10px;border-radius:50%;background:${color};border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);`;
+        const txt = document.createElement('div');
+        txt.textContent = label;
+        txt.style.cssText = 'color:#1A1A1A;font-size:10px;font-weight:600;font-family:system-ui;white-space:nowrap;text-shadow:0 0 3px white,0 0 3px white;';
+        el.appendChild(dot);
+        el.appendChild(txt);
+        const marker = new AdvancedMarkerElement({ map, position: { lat, lng }, content: el });
+        markersRef.current.push(marker);
+      };
+
+      addMarker(COORDINATES.sydney.lat, COORDINATES.sydney.lng, 'Sydney', '#7C3AED');
+      addMarker(COORDINATES.albury.lat, COORDINATES.albury.lng, 'Albury', '#7C3AED');
+      addMarker(COORDINATES.melbourne.lat, COORDINATES.melbourne.lng, 'Melbourne', '#7C3AED');
+
+      // Pickup markers (small, no label)
+      PICKUP_POINTS.forEach((pt) => {
+        const el = document.createElement('div');
+        el.style.cssText = 'width:8px;height:8px;border-radius:50%;background:#7C3AED;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.15);';
+        const marker = new AdvancedMarkerElement({ map, position: { lat: pt.lat, lng: pt.lng }, content: el });
+        markersRef.current.push(marker);
       });
 
-      const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([stop.lng, stop.lat])
-        .setPopup(new mapboxgl.Popup({ offset: 8, maxWidth: '200px' }).setHTML(`
-          <div style="font-size:13px;font-family:system-ui;">
-            <div style="font-weight:600;">${esc(stop.name)}</div>
-            ${stop.description ? `<div style="color:#888;font-size:11px;margin-top:2px;">${esc(stop.description)}</div>` : ''}
-            <div style="color:#7C3AED;font-size:11px;margin-top:4px;">by ${esc(stop.addedBy)}</div>
-            ${stop.confirmed ? '<div style="color:#22c55e;font-size:11px;font-weight:600;">On the route</div>' : '<div style="color:#888;font-size:11px;">Suggested</div>'}
-          </div>`))
-        .addTo(map);
-      stopMarkersRef.current.push(marker);
-    });
+      // Stop markers
+      stops.forEach((stop) => {
+        const el = document.createElement('div');
+        const color = stop.confirmed ? '#7C3AED' : '#888888';
+        const size = stop.confirmed ? '12px' : '10px';
+        el.style.cssText = `width:${size};height:${size};border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.2);cursor:pointer;`;
+        const marker = new AdvancedMarkerElement({ map, position: { lat: stop.lat, lng: stop.lng }, content: el, title: stop.name });
+        markersRef.current.push(marker);
+      });
+    };
+
+    updateRoute();
   }, [stops]);
 
   const addStop = async () => {
@@ -206,7 +260,6 @@ export default function RouteMap({ userName }: { userName: string }) {
       return;
     }
 
-    // Plain text — can't add without coordinates
     setInputText('');
   };
 
@@ -272,40 +325,88 @@ export default function RouteMap({ userName }: { userName: string }) {
         <p className="text-xs text-accent mb-3 -mt-2">Google Maps link detected — AI will extract place details</p>
       )}
 
-      {/* Map + departure info side-by-side on desktop */}
+      {/* Map + drive itinerary side-by-side on desktop */}
       <div className="md:flex md:gap-4">
         <div className="flex-1 rounded-xl overflow-hidden border border-border shadow-sm">
           <div ref={mapContainerRef} className="w-full h-[300px] md:h-[450px]" />
         </div>
 
-        {/* Departure info panel */}
-        <div className="md:w-56 mt-4 md:mt-0 space-y-3">
+        {/* Drive itinerary panel */}
+        <div className="md:w-64 mt-4 md:mt-0 space-y-3">
+          {/* Day 1 */}
           <div className="bg-white rounded-lg border border-border p-3 shadow-sm">
-            <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Departure</p>
-            <p className="text-2xl font-display font-bold text-accent">4:00 PM</p>
-            <p className="text-sm text-text-primary mt-1">Wed Apr 8</p>
-          </div>
-
-          <div className="bg-white rounded-lg border border-border p-3 shadow-sm">
-            <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Route</p>
+            <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-3">Day 1 — Wed Apr 8</p>
             <div className="space-y-0">
-              <div className="flex items-center gap-2 py-1.5 border-b border-border/50">
-                <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
-                <span className="text-xs font-medium text-text-primary">Sydney</span>
+              <div className="flex items-start gap-2.5">
+                <div className="flex flex-col items-center mt-0.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-accent flex-shrink-0" />
+                  <div className="w-px h-full bg-accent/30 min-h-[24px]" />
+                </div>
+                <div className="pb-2">
+                  <p className="text-sm font-medium text-text-primary">Depart Sydney</p>
+                  <p className="text-xs text-accent font-semibold">4:00 PM</p>
+                </div>
               </div>
-              {confirmed.map((stop) => (
-                <div key={stop.id} className="flex items-center gap-2 py-1.5 border-b border-border/50 last:border-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-accent/60 flex-shrink-0 ml-1" />
-                  <span className="text-xs text-text-primary truncate">{stop.name}</span>
+
+              {legs[0] && (
+                <div className="flex items-center gap-2.5 py-1">
+                  <div className="flex flex-col items-center">
+                    <div className="w-px h-2 bg-accent/30" />
+                  </div>
+                  <p className="text-xs text-text-muted">{formatDuration(legs[0].durationSec)} drive</p>
+                </div>
+              )}
+
+              {confirmed.length > 0 && confirmed.map((stop) => (
+                <div key={stop.id} className="flex items-start gap-2.5">
+                  <div className="flex flex-col items-center mt-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent/60 flex-shrink-0 ml-0.5" />
+                    <div className="w-px h-full bg-accent/30 min-h-[16px]" />
+                  </div>
+                  <p className="text-xs text-text-primary truncate pb-1">{stop.name}</p>
                 </div>
               ))}
-              <div className="flex items-center gap-2 py-1.5 border-b border-border/50">
-                <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
-                <span className="text-xs font-medium text-text-primary">Albury</span>
+
+              <div className="flex items-start gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-accent flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-text-primary">Arrive Albury</p>
+                  {legs[0] && <p className="text-xs text-accent font-semibold">~{formatTime(legs[0].arriveTime)}</p>}
+                </div>
               </div>
-              <div className="flex items-center gap-2 py-1.5">
-                <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
-                <span className="text-xs font-medium text-text-primary">Melbourne</span>
+            </div>
+          </div>
+
+          {/* Day 2 */}
+          <div className="bg-white rounded-lg border border-border p-3 shadow-sm">
+            <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-3">Day 2 — Thu Apr 9</p>
+            <div className="space-y-0">
+              <div className="flex items-start gap-2.5">
+                <div className="flex flex-col items-center mt-0.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-accent flex-shrink-0" />
+                  <div className="w-px h-full bg-accent/30 min-h-[24px]" />
+                </div>
+                <div className="pb-2">
+                  <p className="text-sm font-medium text-text-primary">Depart Albury</p>
+                  <p className="text-xs text-accent font-semibold">10:00 AM</p>
+                </div>
+              </div>
+
+              {legs[1] && (
+                <div className="flex items-center gap-2.5 py-1">
+                  <div className="flex flex-col items-center">
+                    <div className="w-px h-2 bg-accent/30" />
+                  </div>
+                  <p className="text-xs text-text-muted">{formatDuration(legs[1].durationSec)} drive</p>
+                </div>
+              )}
+
+              <div className="flex items-start gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-accent flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-text-primary">Arrive Melbourne</p>
+                  {legs[1] && <p className="text-xs text-accent font-semibold">~{formatTime(legs[1].arriveTime)}</p>}
+                </div>
               </div>
             </div>
           </div>
@@ -386,27 +487,3 @@ export default function RouteMap({ userName }: { userName: string }) {
     </section>
   );
 }
-
-function addCityMarker(map: mapboxgl.Map, coords: { lng: number; lat: number }, label: string) {
-  const el = document.createElement('div');
-  Object.assign(el.style, { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' });
-  const dot = document.createElement('div');
-  Object.assign(dot.style, { width: '8px', height: '8px', borderRadius: '50%', background: '#7C3AED', border: '2px solid white', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' });
-  const text = document.createElement('div');
-  text.textContent = label;
-  Object.assign(text.style, { color: '#1A1A1A', fontSize: '10px', fontWeight: '600', fontFamily: 'system-ui', whiteSpace: 'nowrap' });
-  el.appendChild(dot);
-  el.appendChild(text);
-  new mapboxgl.Marker({ element: el }).setLngLat([coords.lng, coords.lat]).addTo(map);
-}
-
-function addPickupMarker(map: mapboxgl.Map, coords: { lng: number; lat: number }) {
-  const el = document.createElement('div');
-  Object.assign(el.style, {
-    width: '8px', height: '8px', borderRadius: '50%', background: '#7C3AED',
-    border: '2px solid white', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-  });
-  new mapboxgl.Marker({ element: el }).setLngLat([coords.lng, coords.lat]).addTo(map);
-}
-
-function esc(s: string) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
