@@ -1,6 +1,7 @@
 'use client';
 
 import { useCountdown } from '@/hooks/useCountdown';
+import WaveformSurfer from './WaveformSurfer';
 
 export default function Hero() {
   const { days, hours, minutes, seconds, passed } = useCountdown();
@@ -50,6 +51,8 @@ export default function Hero() {
             </>
           )}
         </div>
+
+        <WaveformSurfer />
       </div>
     </section>
   );
