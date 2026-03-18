@@ -48,7 +48,6 @@ export interface GameState {
   score: number;
   highScore: number;
   onWave: boolean;
-  prevWaveY: number;
   waveSegments: number[];
   frameCount: number;
   catBlink: number; // countdown to next blink
@@ -65,15 +64,23 @@ function smoothStep(t: number): number {
 function ensureSegments(segments: number[], neededIndex: number, amplitude: number) {
   while (segments.length <= neededIndex + 2) {
     const prev = segments[segments.length - 1] ?? 0;
+    const idx = segments.length;
     const roll = Math.random();
 
+    // don't generate gaps in the first 15 segments (grace period)
+    const canGap = idx > 15;
+
     let value: number;
-    if (roll < 0.15) {
-      // sharp drop — wave plunges down, creating a gap the cat falls into
-      value = amplitude * (0.8 + Math.random() * 0.5);
+    if (canGap && roll < 0.12) {
+      // GAP — wave plunges far below the canvas; cat must boost over
+      // value of 80+ pushes wave to waveMidY(65)+80 = 145, well below canvas(120)
+      value = 80 + Math.random() * 30;
+    } else if (canGap && prev > 60) {
+      // recovery after a gap — bring wave back up sharply
+      value = -amplitude * (0.3 + Math.random() * 0.4);
     } else if (roll < 0.25) {
       // sharp rise — wave spikes up
-      value = -amplitude * (0.6 + Math.random() * 0.4);
+      value = -amplitude * (0.5 + Math.random() * 0.5);
     } else {
       // normal — smooth variation
       const raw = (Math.random() - 0.5) * 2 * amplitude;
@@ -119,7 +126,7 @@ export function createInitialState(config: GameConfig, highScore: number): GameS
     score: 0,
     highScore,
     onWave: true,
-    prevWaveY: config.waveMidY,
+
     waveSegments: segments,
     frameCount: 0,
     catBlink: 60,
@@ -141,7 +148,7 @@ export function startGame(state: GameState, config: GameConfig): GameState {
     currentSpeed: config.scrollSpeed,
     score: 0,
     onWave: true,
-    prevWaveY: waveY,
+
     waveSegments: segments,
     frameCount: 0,
     catEarsUp: false,
@@ -182,35 +189,21 @@ export function tick(state: GameState, config: GameConfig): GameState {
 
   // wave surface at surfer position
   const waveY = getWaveYAtX(s.scrollOffset, config.surferX, s.waveSegments, config);
-  const waveDelta = waveY - s.prevWaveY; // positive = wave moved down
-  s.prevWaveY = waveY;
 
-  // landing logic: the cat can only land on the wave when falling onto it
-  // if the wave drops away faster than the cat falls, the cat goes airborne
-  if (s.surferY >= waveY && s.surferVY >= 0) {
-    // cat reached wave surface while falling — land on it
+  // landing: only land on wave if it's actually on-screen (not a gap)
+  const waveOnScreen = waveY < config.height;
+
+  if (waveOnScreen && s.surferY >= waveY && s.surferVY >= 0) {
+    // cat reached wave surface while falling — land
     s.surferY = waveY;
     s.surferVY = 0;
     s.onWave = true;
-  } else if (s.onWave && waveDelta > 0) {
-    // cat was riding wave but wave is dropping —
-    // only follow the wave down at a limited speed (max ~2px/frame)
-    // beyond that, the cat goes airborne
-    const maxFollow = 2.0;
-    if (waveDelta <= maxFollow) {
-      // gentle slope, cat can follow
-      s.surferY = waveY;
-      s.surferVY = 0;
-    } else {
-      // wave dropped too fast — cat is now airborne!
-      s.onWave = false;
-      s.surferVY = 0.5; // slight downward velocity
-    }
-  } else if (s.onWave && waveY < s.surferY) {
-    // wave rose into the cat — push cat up with the wave
+  } else if (waveOnScreen && s.onWave) {
+    // riding the wave — follow it
     s.surferY = waveY;
     s.surferVY = 0;
   } else {
+    // airborne — either wave is a gap (off-screen) or cat is above wave
     s.onWave = false;
   }
 
