@@ -2,61 +2,61 @@
 
 import { useState, useEffect } from 'react';
 
+const TRAVELERS = [
+  { name: 'Anna', color: '#EC4899', emoji: '🌸' },
+  { name: 'Jay', color: '#3B82F6', emoji: '🎧' },
+  { name: 'Kat', color: '#F59E0B', emoji: '🐱' },
+  { name: 'Rein', color: '#10B981', emoji: '🌧️' },
+  { name: 'Yamin', color: '#7C3AED', emoji: '🎵' },
+];
+
 interface NamePromptProps {
   onSubmit: (name: string) => void;
 }
 
 export default function NamePrompt({ onSubmit }: NamePromptProps) {
-  const [value, setValue] = useState('');
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = value.trim();
-    if (trimmed) onSubmit(trimmed);
-  };
-
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm transition-opacity duration-300"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#141414] transition-opacity duration-500"
       style={{ opacity: visible ? 1 : 0 }}
     >
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-sm mx-6 rounded-2xl bg-white border border-border p-8 shadow-xl transition-all duration-300"
+      <div
+        className="text-center transition-all duration-500"
         style={{
           opacity: visible ? 1 : 0,
-          transform: visible ? 'translateY(0)' : 'translateY(8px)',
+          transform: visible ? 'translateY(0)' : 'translateY(16px)',
         }}
       >
-        <h2 className="font-display text-xl font-bold text-text-primary mb-1 text-center">
-          What&apos;s your name?
+        <h2 className="font-display text-2xl md:text-3xl font-bold text-white mb-10">
+          Who&apos;s on this trip?
         </h2>
-        <p className="text-text-muted text-sm text-center mb-6">
-          So everyone knows who&apos;s editing
-        </p>
 
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="Your name"
-          autoFocus
-          className="w-full rounded-lg bg-surface-alt border border-border px-4 py-2.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
-        />
-
-        <button
-          type="submit"
-          disabled={!value.trim()}
-          className="mt-3 w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-30"
-        >
-          Continue
-        </button>
-      </form>
+        <div className="flex gap-5 md:gap-8 justify-center flex-wrap px-6">
+          {TRAVELERS.map((t) => (
+            <button
+              key={t.name}
+              onClick={() => onSubmit(t.name)}
+              className="group flex flex-col items-center gap-3 transition-transform duration-200 hover:scale-110 active:scale-95"
+            >
+              <div
+                className="w-20 h-20 md:w-24 md:h-24 rounded-lg flex items-center justify-center text-3xl md:text-4xl shadow-lg transition-all duration-200 group-hover:shadow-xl group-hover:ring-2 group-hover:ring-white/50"
+                style={{ backgroundColor: t.color }}
+              >
+                {t.emoji}
+              </div>
+              <span className="text-sm md:text-base font-medium text-gray-400 group-hover:text-white transition-colors">
+                {t.name}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
